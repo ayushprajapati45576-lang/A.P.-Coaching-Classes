@@ -34,6 +34,11 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Root route to check if backend is running
+app.get('/', (req, res) => {
+    res.json({ message: "A.P. Coaching Classes Backend is running successfully! 🚀" });
+});
+
 // We are keeping multer to MemoryStorage for Vercel compatibility.
 // We will upload directly to Supabase storage.
 const storage = multer.memoryStorage();
