@@ -15,6 +15,7 @@ const server = http.createServer(app);
 
 const allowedOrigins = [
     process.env.FRONTEND_URL,
+    'https://apcoachingclasses.vercel.app',
     'http://localhost:5173',
     'http://localhost:3000'
 ].filter(Boolean);
