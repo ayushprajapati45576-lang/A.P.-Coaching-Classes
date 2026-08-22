@@ -244,7 +244,7 @@ const StudentNotesTab = () => {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{new Date(n.created_at).toLocaleDateString()}</span>
                                             <button 
-                                                onClick={() => setSelectedNoteUrl(n.file_url ? n.file_url.replace('http://localhost:5000', '') : '')} 
+                                                onClick={() => setSelectedNoteUrl(n.file_url || '')} 
                                                 style={{ 
                                                     background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', 
                                                     color: '#ffffff', 
