@@ -14,6 +14,10 @@ const QuizzesTab = () => {
     const [questions, setQuestions] = useState([{ question: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_option: 'A' }]);
     const [status, setStatus] = useState({ type: '', message: '' });
 
+    // AI Generation State
+    const [aiPrompt, setAiPrompt] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
     useEffect(() => {
         if (view === 'list') {
             fetchQuizzes();
@@ -91,6 +95,48 @@ const QuizzesTab = () => {
         }
     };
 
+    const handleGenerateAI = async () => {
+        if (!aiPrompt.trim()) {
+            setStatus({ type: 'error', message: 'Please enter a topic for the AI.' });
+            return;
+        }
+        
+        setIsGenerating(true);
+        setStatus({ type: 'loading', message: '🤖 AI is thinking... This may take a few seconds.' });
+        
+        try {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/quizzes/generate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ prompt: aiPrompt })
+            });
+            
+            const data = await res.json();
+            
+            if (res.ok) {
+                if (Array.isArray(data) && data.length > 0) {
+                    setQuestions(data);
+                    setStatus({ type: 'success', message: 'AI generated the questions successfully! Review them below.' });
+                    // Auto-fill title if empty
+                    if (!title) {
+                        setTitle(`Quiz: ${aiPrompt}`);
+                    }
+                } else {
+                    setStatus({ type: 'error', message: 'AI returned an invalid format. Please try again.' });
+                }
+            } else {
+                setStatus({ type: 'error', message: data.error || 'Failed to generate quiz.' });
+            }
+        } catch (err) {
+            setStatus({ type: 'error', message: 'Connection error while contacting AI.' });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
     if (view === 'list') {
         return (
             <div className={`glass-panel animate-fade-in`} style={{ padding: '1.5rem' }}>
@@ -133,6 +179,43 @@ const QuizzesTab = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                 <h2 style={{ margin: 0 }}>Create New Quiz</h2>
                 <button onClick={() => setView('list')} style={{ background: 'transparent', color: 'var(--color-text-muted)', border: 'none', cursor: 'pointer' }}>Cancel</button>
+            </div>
+
+            {/* AI Generator Section */}
+            <div style={{ background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%)', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                <h3 style={{ margin: '0 0 1rem 0', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    ✨ AI Magic Quiz Generator
+                </h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
+                    Type a topic (e.g., "Solar System for Class 8") and let AI generate the questions and answers for you!
+                </p>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    <input 
+                        type="text" 
+                        value={aiPrompt} 
+                        onChange={e => setAiPrompt(e.target.value)} 
+                        placeholder="What should the quiz be about?" 
+                        style={{ flex: 1, padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-main)', color: 'var(--color-text-main)' }}
+                        disabled={isGenerating}
+                    />
+                    <button 
+                        type="button"
+                        onClick={handleGenerateAI}
+                        disabled={isGenerating}
+                        style={{ 
+                            background: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)', 
+                            color: 'white', 
+                            border: 'none', 
+                            padding: '0.75rem 1.5rem', 
+                            borderRadius: '4px', 
+                            cursor: isGenerating ? 'not-allowed' : 'pointer',
+                            fontWeight: 'bold',
+                            opacity: isGenerating ? 0.7 : 1
+                        }}
+                    >
+                        {isGenerating ? 'Generating...' : 'Generate 🚀'}
+                    </button>
+                </div>
             </div>
 
             <form onSubmit={handleSubmit} className={styles.form}>

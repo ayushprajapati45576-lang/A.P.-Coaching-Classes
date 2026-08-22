@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const multer = require('multer');
 const path = require('path');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const supabase = require('./config/supabase');
 const { authenticateToken, requireRole } = require('./middleware/auth');
 
@@ -792,6 +793,100 @@ app.post('/api/live-class', authenticateToken, requireRole('teacher'), async (re
             });
         }
         res.json({ message: "Live class status updated successfully" });
+    } catch (err) {
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+// --- Quizzes ---
+app.post('/api/quizzes/generate', authenticateToken, requireRole('teacher'), async (req, res) => {
+    const { prompt } = req.body;
+    if (!prompt) return res.status(400).json({ error: "Prompt is required" });
+    if (!process.env.GEMINI_API_KEY) return res.status(500).json({ error: "Gemini API Key is not configured." });
+
+    try {
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        const systemPrompt = `You are a helpful teaching assistant that generates multiple-choice quizzes.
+Generate a quiz based on the user's prompt. 
+You MUST respond with ONLY a raw JSON array of objects.
+Do NOT include markdown formatting like \`\`\`json or \`\`\`.
+Each object must have exactly these keys:
+- question (string)
+- option_a (string)
+- option_b (string)
+- option_c (string)
+- option_d (string)
+- correct_option (string, must be exactly "A", "B", "C", or "D")`;
+
+        const result = await model.generateContent(`${systemPrompt}\n\nUser Prompt: ${prompt}`);
+        let responseText = result.response.text().trim();
+        
+        if (responseText.startsWith('```json')) {
+            responseText = responseText.replace(/```json\n?/, '').replace(/```\n?$/, '');
+        } else if (responseText.startsWith('```')) {
+            responseText = responseText.replace(/```\n?/, '').replace(/```\n?$/, '');
+        }
+
+        const questions = JSON.parse(responseText);
+        res.json(questions);
+    } catch (err) {
+        console.error("AI Generation Error:", err);
+        res.status(500).json({ error: "Failed to generate quiz with AI." });
+    }
+});
+
+app.get('/api/quizzes', authenticateToken, async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('quizzes').select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+        res.json(data || []);
+    } catch (err) {
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+app.post('/api/quizzes', authenticateToken, requireRole('teacher'), async (req, res) => {
+    const { title, class_name, questions } = req.body;
+    if (!title || !questions || !Array.isArray(questions)) return res.status(400).json({ error: "Invalid data" });
+
+    try {
+        const quizId = crypto.randomUUID();
+        const { error: quizError } = await supabase.from('quizzes').insert({
+            id: quizId,
+            title,
+            class_name,
+            created_by: req.user.id
+        });
+        if (quizError) throw quizError;
+
+        const qInserts = questions.map(q => ({
+            id: crypto.randomUUID(),
+            quiz_id: quizId,
+            question: q.question,
+            option_a: q.option_a,
+            option_b: q.option_b,
+            option_c: q.option_c,
+            option_d: q.option_d,
+            correct_option: q.correct_option
+        }));
+
+        const { error: qError } = await supabase.from('quiz_questions').insert(qInserts);
+        if (qError) throw qError;
+
+        res.status(201).json({ message: "Quiz created successfully", id: quizId });
+    } catch (err) {
+        console.error("Create Quiz Error:", err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+app.delete('/api/quizzes/:id', authenticateToken, requireRole('teacher'), async (req, res) => {
+    try {
+        const { error } = await supabase.from('quizzes').delete().eq('id', req.params.id);
+        if (error) throw error;
+        res.json({ message: "Quiz deleted successfully" });
     } catch (err) {
         res.status(500).json({ error: "Internal server error" });
     }
