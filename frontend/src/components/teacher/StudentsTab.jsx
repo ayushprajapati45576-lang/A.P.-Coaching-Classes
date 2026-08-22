@@ -11,7 +11,7 @@ const StudentsTab = () => {
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedIds, setSelectedIds] = useState([]);
-    const [visiblePasswords, setVisiblePasswords] = useState({});
+
 
     // Form State
     const [formData, setFormData] = useState({ email: '', password: '', fullName: '', fatherName: '', phone: '', class_name: '10' });
@@ -116,9 +116,7 @@ const StudentsTab = () => {
         }
     };
 
-    const togglePasswordVisibility = (id) => {
-        setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
-    };
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -211,7 +209,7 @@ const StudentsTab = () => {
                                     <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Father's Name</th>
                                     <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Class</th>
                                     <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Email</th>
-                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Password</th>
+
                                     <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Status</th>
                                     <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)', textAlign: 'right' }}>Actions</th>
                                 </tr>
@@ -238,20 +236,7 @@ const StudentsTab = () => {
                                         <td style={{ padding: '0.75rem' }}>{s.father_name || '-'}</td>
                                         <td style={{ padding: '0.75rem' }}>{['8', '9', '10', '12'].includes(s.class_name) ? `Class ${s.class_name}` : s.class_name}</td>
                                         <td style={{ padding: '0.75rem' }}>{s.users?.email}</td>
-                                        <td style={{ padding: '0.75rem', color: 'var(--color-text-main)' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <span style={{ display: 'inline-block', width: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {visiblePasswords[s.id] ? (s.plain_password || '********') : '••••••••'}
-                                                </span>
-                                                <button 
-                                                    onClick={() => togglePasswordVisibility(s.id)}
-                                                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1rem', padding: 0 }}
-                                                    title={visiblePasswords[s.id] ? "Hide Password" : "Show Password"}
-                                                >
-                                                    {visiblePasswords[s.id] ? '🙈' : '👁️'}
-                                                </button>
-                                            </div>
-                                        </td>
+
                                         <td style={{ padding: '0.75rem' }}>
                                             <span style={{ 
                                                 padding: '0.25rem 0.5rem', 
