@@ -44,6 +44,7 @@ CREATE TABLE books (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(255) NOT NULL,
     author VARCHAR(255),
+    class_name VARCHAR(50) DEFAULT 'General',
     file_url TEXT NOT NULL,
     file_url_hindi TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
