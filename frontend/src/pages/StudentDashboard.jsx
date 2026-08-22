@@ -15,7 +15,23 @@ import StudentQuizzesTab from '../components/student/StudentQuizzesTab';
 
 const StudentDashboard = () => {
     const { user, logout } = useAuth();
-    const [activeTab, setActiveTab] = useState('overview');
+    const [activeTab, setActiveTab] = useState(() => {
+        const hash = window.location.hash.replace('#', '');
+        return hash || 'overview';
+    });
+    
+    useEffect(() => {
+        window.location.hash = activeTab;
+    }, [activeTab]);
+
+    useEffect(() => {
+        const handleHashChange = () => {
+            const hash = window.location.hash.replace('#', '');
+            if (hash) setActiveTab(hash);
+        };
+        window.addEventListener('hashchange', handleHashChange);
+        return () => window.removeEventListener('hashchange', handleHashChange);
+    }, []);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const [unreadCount, setUnreadCount] = useState(0);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import styles from './Dashboard.module.css';
 
@@ -15,7 +15,23 @@ import QuizzesTab from '../components/teacher/QuizzesTab';
 
 const TeacherDashboard = () => {
     const { user, logout } = useAuth();
-    const [activeTab, setActiveTab] = useState('overview');
+    const [activeTab, setActiveTab] = useState(() => {
+        const hash = window.location.hash.replace('#', '');
+        return hash || 'overview';
+    });
+    
+    useEffect(() => {
+        window.location.hash = activeTab;
+    }, [activeTab]);
+
+    useEffect(() => {
+        const handleHashChange = () => {
+            const hash = window.location.hash.replace('#', '');
+            if (hash) setActiveTab(hash);
+        };
+        window.addEventListener('hashchange', handleHashChange);
+        return () => window.removeEventListener('hashchange', handleHashChange);
+    }, []);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const renderTabContent = () => {
