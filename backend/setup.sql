@@ -25,6 +25,7 @@ CREATE TABLE students (
     full_name VARCHAR(255) NOT NULL,
     father_name VARCHAR(255),
     phone VARCHAR(20),
+    class_name VARCHAR(50) DEFAULT 'General',
     enrollment_date DATE DEFAULT CURRENT_DATE
 );
 
@@ -44,6 +45,7 @@ CREATE TABLE books (
     title VARCHAR(255) NOT NULL,
     author VARCHAR(255),
     file_url TEXT NOT NULL,
+    file_url_hindi TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_by UUID REFERENCES users(id)
 );
