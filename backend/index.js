@@ -808,8 +808,8 @@ app.post('/api/quizzes/generate', authenticateToken, requireRole('teacher'), asy
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
 
-        const systemPrompt = `You are a helpful teaching assistant that generates multiple-choice quizzes.
-Generate a quiz based on the user's prompt. 
+const systemPrompt = `You are a helpful teaching assistant that generates multiple-choice quizzes.
+Generate a concise quiz (maximum 5 questions unless specified otherwise) based on the user's prompt to ensure fast generation.
 You MUST respond with ONLY a raw JSON array of objects.
 Do NOT include markdown formatting like \`\`\`json or \`\`\`.
 Each object must have exactly these keys:
@@ -834,99 +834,6 @@ Each object must have exactly these keys:
     } catch (err) {
         console.error("AI Generation Error:", err);
         res.status(500).json({ error: "Failed to generate quiz with AI." });
-    }
-});
-
-app.get('/api/quizzes', authenticateToken, async (req, res) => {
-    try {
-        const { data, error } = await supabase.from('quizzes').select('*').order('created_at', { ascending: false });
-        if (error) throw error;
-        res.json(data || []);
-    } catch (err) {
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
-
-app.post('/api/quizzes', authenticateToken, requireRole('teacher'), async (req, res) => {
-    const { title, class_name, questions } = req.body;
-    if (!title || !questions || !Array.isArray(questions)) return res.status(400).json({ error: "Invalid data" });
-
-    try {
-        const quizId = crypto.randomUUID();
-        const { error: quizError } = await supabase.from('quizzes').insert({
-            id: quizId,
-            title,
-            class_name,
-            created_by: req.user.id
-        });
-        if (quizError) throw quizError;
-
-        const qInserts = questions.map(q => ({
-            id: crypto.randomUUID(),
-            quiz_id: quizId,
-            question: q.question,
-            option_a: q.option_a,
-            option_b: q.option_b,
-            option_c: q.option_c,
-            option_d: q.option_d,
-            correct_option: q.correct_option
-        }));
-
-        const { error: qError } = await supabase.from('quiz_questions').insert(qInserts);
-        if (qError) throw qError;
-
-        res.status(201).json({ message: "Quiz created successfully", id: quizId });
-    } catch (err) {
-        console.error("Create Quiz Error:", err);
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
-
-app.delete('/api/quizzes/:id', authenticateToken, requireRole('teacher'), async (req, res) => {
-    try {
-        const { error } = await supabase.from('quizzes').delete().eq('id', req.params.id);
-        if (error) throw error;
-        res.json({ message: "Quiz deleted successfully" });
-    } catch (err) {
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
-
-app.get('/api/quizzes/:id/questions', authenticateToken, async (req, res) => {
-    try {
-        const { data, error } = await supabase.from('quiz_questions').select('*').eq('quiz_id', req.params.id);
-        if (error) throw error;
-        // Optionally omit correct_option for students, but frontend relies on it for immediate grading right now
-        res.json(data || []);
-    } catch (err) {
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
-
-app.get('/api/student/quiz-results', authenticateToken, async (req, res) => {
-    try {
-        const { data, error } = await supabase.from('quiz_results').select('*').eq('student_id', req.user.id);
-        if (error) throw error;
-        res.json(data || []);
-    } catch (err) {
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
-
-app.post('/api/student/quiz-results', authenticateToken, async (req, res) => {
-    const { quiz_id, score, total_marks } = req.body;
-    try {
-        const { error } = await supabase.from('quiz_results').insert({
-            id: crypto.randomUUID(),
-            quiz_id,
-            student_id: req.user.id,
-            score,
-            total_marks
-        });
-        if (error) throw error;
-        res.status(201).json({ message: "Quiz results saved" });
-    } catch (err) {
-        res.status(500).json({ error: "Internal server error" });
     }
 });
 
