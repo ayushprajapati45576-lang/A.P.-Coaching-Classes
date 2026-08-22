@@ -11,7 +11,7 @@ const StudentNoticesTab = () => {
 
     const fetchNotices = async () => {
         try {
-            const res = await fetch('/api/notices', {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/notices`, {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();

@@ -35,7 +35,7 @@ const AttendanceTab = () => {
         setLoading(true);
         setStatusMsg({ type: '', message: '' });
         try {
-            const studentsRes = await fetch('/api/students', {
+            const studentsRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/students`, {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const studentsData = await studentsRes.json();
@@ -43,8 +43,8 @@ const AttendanceTab = () => {
 
             setStudents(studentsData);
 
-            const attRes = await fetch(`/api/attendance?date=${date}`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            const attRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/attendance?date=${date}`, {
+                headers: { `Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const attData = await attRes.json();
 
@@ -70,8 +70,8 @@ const AttendanceTab = () => {
         setReportLoading(true);
         try {
             const [year, month] = reportMonth.split('-');
-            const res = await fetch(`/api/attendance/report?month=${month}&year=${year}`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/attendance/report?month=${month}&year=${year}`, {
+                headers: { `Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();
             if (res.ok) {
@@ -91,8 +91,8 @@ const AttendanceTab = () => {
         setHistoryLoading(true);
         setHistoryMsg({ type: '', message: '' });
         try {
-            const res = await fetch(`/api/attendance/student/${studentId}`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/attendance/student/${studentId}`, {
+                headers: { `Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();
             if (res.ok) {
@@ -109,8 +109,8 @@ const AttendanceTab = () => {
 
     const handleUpdateHistoryRecord = async (recordId, newStatus) => {
         try {
-            const res = await fetch(`/api/attendance/${recordId}`, {
-                method: 'PUT',
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/attendance/${recordId}`, {
+                method: `PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -147,7 +147,7 @@ const AttendanceTab = () => {
         }));
 
         try {
-            const res = await fetch('/api/attendance', {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/attendance`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

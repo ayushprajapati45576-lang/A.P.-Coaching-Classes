@@ -48,7 +48,7 @@ const StudentDashboard = () => {
         // Fetch unread notifications count
         const fetchUnread = async () => {
             try {
-                const res = await fetch('/api/notifications/unread', {
+                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/notifications/unread`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 });
                 if (res.ok) {

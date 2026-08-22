@@ -12,7 +12,7 @@ const StudentBooksTab = () => {
 
     const fetchBooks = async () => {
         try {
-            const res = await fetch('/api/books', {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/books`, {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();

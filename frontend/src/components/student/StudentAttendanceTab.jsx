@@ -11,7 +11,7 @@ const StudentAttendanceTab = () => {
 
     const fetchAttendance = async () => {
         try {
-            const res = await fetch('/api/student/attendance', {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/student/attendance`, {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();

@@ -22,7 +22,7 @@ export const AuthProvider = ({ children }) => {
 
     const fetchUser = async (token) => {
         try {
-            const res = await fetch('/api/me', {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/me`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const login = async (email, password) => {
-        const res = await fetch('/api/auth/login', {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })

@@ -11,7 +11,7 @@ const StudentFeesTab = () => {
 
     const fetchFees = async () => {
         try {
-            const res = await fetch('/api/student/fees', {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/student/fees`, {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();

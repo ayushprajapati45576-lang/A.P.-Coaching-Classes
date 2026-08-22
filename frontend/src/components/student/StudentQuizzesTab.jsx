@@ -24,8 +24,8 @@ const StudentQuizzesTab = () => {
         setLoading(true);
         try {
             const [qRes, rRes] = await Promise.all([
-                fetch('/api/quizzes', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }),
-                fetch('/api/student/quiz-results', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
+                fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/quizzes`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }),
+                fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/student/quiz-results`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
             ]);
             
             if (qRes.ok) setQuizzes(await qRes.json());
@@ -39,8 +39,8 @@ const StudentQuizzesTab = () => {
 
     const handleStartQuiz = async (quiz) => {
         try {
-            const res = await fetch(`/api/quizzes/${quiz.id}/questions`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/quizzes/${quiz.id}/questions`, {
+                headers: { `Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();
             if (res.ok) {
@@ -69,8 +69,8 @@ const StudentQuizzesTab = () => {
 
         setSubmitStatus('Submitting...');
         try {
-            const res = await fetch(`/api/quizzes/${activeQuiz.id}/submit`, {
-                method: 'POST',
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/quizzes/${activeQuiz.id}/submit`, {
+                method: `POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`

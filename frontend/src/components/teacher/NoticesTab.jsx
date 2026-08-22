@@ -22,7 +22,7 @@ const NoticesTab = () => {
     const fetchNotices = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/notices', {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/notices`, {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();
@@ -38,8 +38,8 @@ const NoticesTab = () => {
         if (!window.confirm('Are you sure you want to delete this?')) return;
         if (!window.confirm("Are you sure you want to delete this notice?")) return;
         try {
-            const res = await fetch(`/api/notices/${id}`, {
-                method: 'DELETE',
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/notices/${id}`, {
+                method: `DELETE',
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             if (res.ok) {
@@ -55,7 +55,7 @@ const NoticesTab = () => {
         setStatus({ type: 'loading', message: 'Posting notice...' });
 
         try {
-            const res = await fetch('/api/notices', {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/notices`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -18,14 +18,14 @@ const StudentOverviewTab = ({ setActiveTab }) => {
                 const headers = { 'Authorization': `Bearer ${token}` };
 
                 // Fetch Notices
-                const noticesRes = await fetch('/api/notices', { headers });
+                const noticesRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/notices`, { headers });
                 if (noticesRes.ok) {
                     const noticesData = await noticesRes.json();
                     setNotices(noticesData.slice(0, 3)); // Only top 3
                 }
 
                 // Fetch Attendance
-                const attRes = await fetch('/api/student/attendance', { headers });
+                const attRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/student/attendance`, { headers });
                 if (attRes.ok) {
                     const attData = await attRes.json();
                     const total = attData.length;
@@ -34,7 +34,7 @@ const StudentOverviewTab = ({ setActiveTab }) => {
                 }
 
                 // Fetch Fees
-                const feesRes = await fetch('/api/student/fees', { headers });
+                const feesRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/student/fees`, { headers });
                 if (feesRes.ok) {
                     const feesData = await feesRes.json();
                     const pending = feesData.filter(f => f.status === 'pending' || f.status === 'overdue');
@@ -43,7 +43,7 @@ const StudentOverviewTab = ({ setActiveTab }) => {
                 }
 
                 // Fetch Results
-                const resRes = await fetch('/api/student/results', { headers });
+                const resRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/student/results`, { headers });
                 if (resRes.ok) {
                     const resData = await resRes.json();
                     if (resData.length > 0) {
