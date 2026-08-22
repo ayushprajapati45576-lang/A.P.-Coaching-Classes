@@ -892,6 +892,44 @@ app.delete('/api/quizzes/:id', authenticateToken, requireRole('teacher'), async 
     }
 });
 
+app.get('/api/quizzes/:id/questions', authenticateToken, async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('quiz_questions').select('*').eq('quiz_id', req.params.id);
+        if (error) throw error;
+        // Optionally omit correct_option for students, but frontend relies on it for immediate grading right now
+        res.json(data || []);
+    } catch (err) {
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+app.get('/api/student/quiz-results', authenticateToken, async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('quiz_results').select('*').eq('student_id', req.user.id);
+        if (error) throw error;
+        res.json(data || []);
+    } catch (err) {
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+app.post('/api/student/quiz-results', authenticateToken, async (req, res) => {
+    const { quiz_id, score, total_marks } = req.body;
+    try {
+        const { error } = await supabase.from('quiz_results').insert({
+            id: crypto.randomUUID(),
+            quiz_id,
+            student_id: req.user.id,
+            score,
+            total_marks
+        });
+        if (error) throw error;
+        res.status(201).json({ message: "Quiz results saved" });
+    } catch (err) {
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
 const PORT = process.env.PORT || 5000;
 
 if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
