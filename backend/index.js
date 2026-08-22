@@ -806,7 +806,7 @@ app.post('/api/quizzes/generate', authenticateToken, requireRole('teacher'), asy
 
     try {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
 
         const systemPrompt = `You are a helpful teaching assistant that generates multiple-choice quizzes.
 Generate a quiz based on the user's prompt. 
