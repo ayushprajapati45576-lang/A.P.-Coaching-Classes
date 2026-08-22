@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import styles from './Dashboard.module.css';
+import { ChevronLeft, ChevronRight, Menu } from 'lucide-react';
 
 // Import student components
 import StudentOverviewTab from '../components/student/StudentOverviewTab';
@@ -152,7 +153,7 @@ const StudentDashboard = () => {
                                 setIsSidebarCollapsed(!isSidebarCollapsed);
                             }
                         }}>
-                            ☰
+                            {isSidebarCollapsed ? <ChevronRight size={24} /> : <ChevronLeft size={24} />}
                         </button>
                         <h2>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')}</h2>
                     </div>
