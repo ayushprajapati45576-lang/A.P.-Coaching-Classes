@@ -124,7 +124,9 @@ const StudentsTab = () => {
         e.preventDefault();
         setStatus({ type: 'loading', message: editingId ? 'Updating student...' : 'Creating student...' });
         try {
-            const url = editingId ? `/api/students/${editingId}` : '/api/students';
+            const url = editingId 
+                ? `${import.meta.env.VITE_BACKEND_URL || ''}/api/students/${editingId}` 
+                : `${import.meta.env.VITE_BACKEND_URL || ''}/api/students`;
             const method = editingId ? 'PUT' : 'POST';
 
             // For editing, only send password if it's provided
