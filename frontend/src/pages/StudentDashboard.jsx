@@ -32,7 +32,6 @@ const StudentDashboard = () => {
         window.addEventListener('hashchange', handleHashChange);
         return () => window.removeEventListener('hashchange', handleHashChange);
     }, []);
-    }, []);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // For Mobile
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // For Desktop
 
