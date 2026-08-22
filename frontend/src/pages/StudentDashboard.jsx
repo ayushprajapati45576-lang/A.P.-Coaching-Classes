@@ -32,7 +32,9 @@ const StudentDashboard = () => {
         window.addEventListener('hashchange', handleHashChange);
         return () => window.removeEventListener('hashchange', handleHashChange);
     }, []);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    }, []);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false); // For Mobile
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // For Desktop
 
     const [unreadCount, setUnreadCount] = useState(0);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -93,7 +95,7 @@ const StudentDashboard = () => {
             {/* Mobile Overlay */}
             {isSidebarOpen && <div className={styles.overlay} onClick={() => setIsSidebarOpen(false)}></div>}
 
-            <aside className={`glass-panel ${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : ''}`}>
+            <aside className={`glass-panel ${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : ''} ${isSidebarCollapsed ? styles.sidebarCollapsed : ''}`}>
                 <div className={styles.sidebarHeader}>
                     <div className={styles.logo}>{user?.email ? user.email.charAt(0).toUpperCase() : 'C'}</div>
                     <h2>Student Portal</h2>
@@ -143,8 +145,18 @@ const StudentDashboard = () => {
             </aside>
             <main className={styles.mainContent}>
                 <header className={styles.header}>
-                    <button className={styles.hamburgerBtn} onClick={() => setIsSidebarOpen(true)}>☰</button>
-                    <h1>Student Dashboard</h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <button className={styles.hamburgerBtn} onClick={() => {
+                            if (window.innerWidth <= 768) {
+                                setIsSidebarOpen(true);
+                            } else {
+                                setIsSidebarCollapsed(!isSidebarCollapsed);
+                            }
+                        }}>
+                            ☰
+                        </button>
+                        <h2>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')}</h2>
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginLeft: 'auto' }}>
                         <div 
                             style={{ position: 'relative', cursor: 'pointer' }} 

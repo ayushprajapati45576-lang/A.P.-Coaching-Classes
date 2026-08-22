@@ -33,6 +33,7 @@ const TeacherDashboard = () => {
         return () => window.removeEventListener('hashchange', handleHashChange);
     }, []);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     const renderTabContent = () => {
         switch (activeTab) {
@@ -66,7 +67,7 @@ const TeacherDashboard = () => {
             {/* Mobile Overlay */}
             {isSidebarOpen && <div className={styles.overlay} onClick={() => setIsSidebarOpen(false)}></div>}
 
-            <aside className={`glass-panel ${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : ''}`}>
+            <aside className={`glass-panel ${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : ''} ${isSidebarCollapsed ? styles.sidebarCollapsed : ''}`}>
                 <div className={styles.sidebarHeader}>
                     <div className={styles.logo}>{user?.email ? user.email.charAt(0).toUpperCase() : 'C'}</div>
                     <h2>Teacher Panel</h2>
@@ -120,8 +121,18 @@ const TeacherDashboard = () => {
             </aside>
             <main className={styles.mainContent}>
                 <header className={styles.header}>
-                    <button className={styles.hamburgerBtn} onClick={() => setIsSidebarOpen(true)}>☰</button>
-                    <h1>Admin Dashboard</h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <button className={styles.hamburgerBtn} onClick={() => {
+                            if (window.innerWidth <= 768) {
+                                setIsSidebarOpen(true);
+                            } else {
+                                setIsSidebarCollapsed(!isSidebarCollapsed);
+                            }
+                        }}>
+                            ☰
+                        </button>
+                        <h2>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')}</h2>
+                    </div>
                 </header>
                 <div className={styles.content}>
                     {renderTabContent()}
