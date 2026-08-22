@@ -1,0 +1,263 @@
+.tabContainer {
+    padding: var(--spacing-xl);
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.tabContainer h2 {
+    margin-bottom: var(--spacing-lg);
+    color: var(--color-primary);
+}
+
+@keyframes slideUpFade {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    opacity: 0;
+    animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.inputGroup:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.inputGroup:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.inputGroup:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.inputGroup:nth-child(4) {
+    animation-delay: 0.25s;
+}
+
+.inputGroup:nth-child(5) {
+    animation-delay: 0.3s;
+}
+
+.inputGroup label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+}
+
+.inputGroup input,
+.inputGroup textarea,
+.inputGroup select {
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text-main);
+    font-family: inherit;
+    font-size: 1rem;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.inputGroup input:focus,
+.inputGroup textarea:focus,
+.inputGroup select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+.inputGroup option {
+    background: var(--color-surface);
+    color: var(--color-text-main);
+}
+
+.fileInput {
+    padding: var(--spacing-sm) !important;
+    color: var(--color-text-muted) !important;
+}
+
+.submitBtn {
+    background: var(--color-primary);
+    color: var(--color-background) !important;
+    border: none;
+    padding: var(--spacing-sm) var(--spacing-xl);
+    border-radius: var(--border-radius-full);
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-top: var(--spacing-sm);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: var(--shadow-sm);
+    align-self: flex-start;
+    animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation-delay: 0.4s;
+    opacity: 0;
+}
+
+.submitBtn:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+    color: var(--color-background) !important;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.submitBtn:active:not(:disabled) {
+    transform: translateY(0) scale(0.97);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.submitBtn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.errorMsg {
+    color: var(--color-danger);
+    font-size: 0.875rem;
+    background: rgba(239, 68, 68, 0.1);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.successMsg {
+    color: #10b981;
+    font-size: 0.875rem;
+    background: rgba(16, 185, 129, 0.1);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.placeholderText {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+}
+
+.blackoutOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    z-index: 99999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+    font-size: 2rem;
+    font-weight: bold;
+    user-select: none;
+}
+
+.noteViewerModal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem;
+    box-sizing: border-box;
+}
+
+.closeBtn {
+    align-self: flex-end;
+    background: var(--color-danger);
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius-full);
+    cursor: pointer;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 10000;
+}
+
+.cancelBtn {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-main);
+    border: 1px solid var(--color-border);
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.cancelBtn:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--color-danger);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+@media print {
+
+    .tabContainer,
+    .form,
+    .noteViewerModal,
+    .glass-panel {
+        display: none !important;
+    }
+
+    body::before {
+        content: "Printing and downloading is disabled for security.";
+        display: block;
+        text-align: center;
+        font-size: 24px;
+        font-weight: bold;
+        margin-top: 20%;
+    }
+}
+.flexHeader {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    margin-bottom: 1.5rem !important;
+    width: 100% !important;
+    gap: 0.5rem;
+}
+
+@media (max-width: 480px) {
+    .flexHeader h2 {
+        font-size: 1.1rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        flex: 1 1 auto;
+    }
+    
+    .flexHeader button, .flexHeader a {
+        padding: 0.4rem 0.6rem !important;
+        font-size: 0.8rem !important;
+        white-space: nowrap !important;
+        margin: 0 !important;
+        flex-shrink: 0 !important;
+        min-width: max-content;
+    }
+}
