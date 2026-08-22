@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
-const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
@@ -13,9 +12,6 @@ const { authenticateToken, requireRole } = require('./middleware/auth');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-    cors: { origin: '*', methods: ['GET', 'POST'] }
-});
 
 const allowedOrigins = [
     process.env.FRONTEND_URL,
@@ -750,55 +746,44 @@ app.get('/api/dashboard/stats', authenticateToken, requireRole('teacher'), async
     }
 });
 
-// --- WebRTC Signaling (Socket.io) ---
-// Note: WebSocket signaling will NOT work properly in Vercel Serverless Functions.
-// It is kept here for local development. For production, consider using Supabase Realtime or Pusher.
-let broadcasterSocketId = null;
-
-io.on('connection', (socket) => {
-    socket.on('broadcaster', (data) => {
-        broadcasterSocketId = socket.id;
-        socket.join(data.room);
-        socket.broadcast.emit('broadcaster');
-    });
-
-    socket.on('watcher', (data) => {
-        socket.join(data.room);
-        if (broadcasterSocketId) {
-            socket.to(broadcasterSocketId).emit('watcher', socket.id, data.name);
-        }
-    });
-
-    socket.on('offer', (id, message) => {
-        socket.to(id).emit('offer', socket.id, message);
-    });
-
-    socket.on('answer', (id, message) => {
-        socket.to(id).emit('answer', socket.id, message);
-    });
-
-    socket.on('candidate', (id, message) => {
-        socket.to(id).emit('candidate', socket.id, message);
-    });
-
-    socket.on('reaction', (data) => {
-        io.to(data.room).emit('reaction', { emoji: data.emoji, sender: socket.id });
-    });
-
-    socket.on('force-mute', (data) => {
-        socket.to(data.targetId).emit('force-mute', data.mute);
-    });
-
-    socket.on('disconnect', () => {
-        if (socket.id === broadcasterSocketId) {
-            broadcasterSocketId = null;
-            socket.broadcast.emit('broadcaster-disconnected');
-        } else {
-            if (broadcasterSocketId) {
-                socket.to(broadcasterSocketId).emit('disconnectPeer', socket.id);
+// --- Live Class Status (Stored as a special Notice to avoid DB changes) ---
+app.get('/api/live-class', authenticateToken, async (req, res) => {
+    try {
+        const { data: notice } = await supabase.from('notices').select('*').eq('title', '__LIVE_CLASS_STATUS__').maybeSingle();
+        if (notice && notice.content) {
+            try {
+                const statusData = JSON.parse(notice.content);
+                return res.json(statusData);
+            } catch (e) {
+                return res.json({ isActive: false, link: '' });
             }
         }
-    });
+        res.json({ isActive: false, link: '' });
+    } catch (err) {
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+app.post('/api/live-class', authenticateToken, requireRole('teacher'), async (req, res) => {
+    const { isActive, link } = req.body;
+    try {
+        const content = JSON.stringify({ isActive, link });
+        const { data: existing } = await supabase.from('notices').select('*').eq('title', '__LIVE_CLASS_STATUS__').maybeSingle();
+        
+        if (existing) {
+            await supabase.from('notices').update({ content }).eq('id', existing.id);
+        } else {
+            await supabase.from('notices').insert({ 
+                id: crypto.randomUUID(), 
+                title: '__LIVE_CLASS_STATUS__', 
+                content, 
+                created_by: req.user.id 
+            });
+        }
+        res.json({ message: "Live class status updated successfully" });
+    } catch (err) {
+        res.status(500).json({ error: "Internal server error" });
+    }
 });
 
 const PORT = process.env.PORT || 5000;

@@ -49,8 +49,15 @@ export const AuthProvider = ({ children }) => {
         });
 
         if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.error || 'Login failed');
+            let errorMsg = 'Login failed';
+            try {
+                const errorData = await res.json();
+                errorMsg = errorData.error || errorMsg;
+            } catch (e) {
+                // If the response is not JSON (like a 404 or 405 HTML page from Vercel)
+                errorMsg = `Server error: ${res.status} ${res.statusText}. Check your VITE_BACKEND_URL.`;
+            }
+            throw new Error(errorMsg);
         }
 
         const data = await res.json();
