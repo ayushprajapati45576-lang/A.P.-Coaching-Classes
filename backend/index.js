@@ -436,11 +436,16 @@ app.get('/api/attendance/report', authenticateToken, requireRole('teacher'), asy
         
         if (month && year) {
             const paddedMonth = month.padStart(2, '0');
-            // Basic filtering for month prefix in string date
-            query = query.like('date', `${year}-${paddedMonth}-%`);
+            const startDate = `${year}-${paddedMonth}-01`;
+            const nextMonth = parseInt(month) === 12 ? 1 : parseInt(month) + 1;
+            const nextYear = parseInt(month) === 12 ? parseInt(year) + 1 : parseInt(year);
+            const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+            query = query.gte('date', startDate).lt('date', endDate);
         }
         
-        const { data } = await query;
+        const { data, error } = await query;
+        if (error) throw error;
+        
         const formatted = (data || []).map(d => ({ ...d, full_name: d.students.full_name }));
         res.json(formatted);
     } catch (err) {

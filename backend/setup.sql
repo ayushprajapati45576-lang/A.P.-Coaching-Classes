@@ -60,13 +60,15 @@ CREATE TABLE notices (
     created_by UUID REFERENCES users(id)
 );
 
+
 -- 6. Attendance Table
 CREATE TABLE attendance (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     student_id UUID REFERENCES students(id) ON DELETE CASCADE,
     date DATE NOT NULL,
     status VARCHAR(20) CHECK (status IN ('present', 'absent', 'late')),
-    marked_by UUID REFERENCES users(id)
+    marked_by UUID REFERENCES users(id),
+    UNIQUE(student_id, date)
 );
 
 -- 7. Results Table
