@@ -26,7 +26,7 @@ const StudentsTab = () => {
     const fetchStudents = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/students`, {
+            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/students', {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();
@@ -43,7 +43,7 @@ const StudentsTab = () => {
 
         try {
             const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/students/${id}`, {
-                method: `DELETE',
+                method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
 
@@ -63,7 +63,7 @@ const StudentsTab = () => {
     const handleApprove = async (id) => {
         try {
             const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/students/${id}/approve`, {
-                method: `PUT',
+                method: 'PUT',
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
 
@@ -94,7 +94,7 @@ const StudentsTab = () => {
         if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} students?`)) return;
 
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/students/bulk-delete`, {
+            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/students/bulk-delete', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',

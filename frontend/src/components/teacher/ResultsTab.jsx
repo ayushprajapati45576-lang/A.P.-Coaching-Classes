@@ -24,7 +24,7 @@ const ResultsTab = () => {
     const fetchResults = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/results`, {
+            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/results', {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();
@@ -38,7 +38,7 @@ const ResultsTab = () => {
 
     const fetchStudents = async () => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/students`, {
+            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/students', {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();
@@ -56,7 +56,7 @@ const ResultsTab = () => {
         if (!window.confirm("Delete this result?")) return;
         try {
             const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/results/${id}`, {
-                method: `DELETE',
+                method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             if (res.ok) {
@@ -72,7 +72,7 @@ const ResultsTab = () => {
         setStatus({ type: 'loading', message: 'Saving result...' });
 
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/results`, {
+            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/results', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -90,7 +90,7 @@ const StudentNotesTab = () => {
 
     const fetchNotes = async () => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/notes`, {
+            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/notes', {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();

@@ -25,7 +25,7 @@ const FeesTab = () => {
     const fetchFees = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/fees`, {
+            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/fees', {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();
@@ -39,7 +39,7 @@ const FeesTab = () => {
 
     const fetchStudents = async () => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/students`, {
+            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/students', {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();
@@ -57,7 +57,7 @@ const FeesTab = () => {
         if (!window.confirm("Delete this fee record?")) return;
         try {
             const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/fees/${id}`, {
-                method: `DELETE',
+                method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             if (res.ok) {

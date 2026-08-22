@@ -17,8 +17,8 @@ const OverviewTab = () => {
             const token = localStorage.getItem('token');
             const todayDate = new Date().toISOString().split('T')[0];
             const [studentsRes, statsRes] = await Promise.all([
-                fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/students`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/dashboard/stats?date=${todayDate}`, { headers: { `Authorization': `Bearer ${token}` } })
+                fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/students', { headers: { 'Authorization': `Bearer ${token}` } }),
+                fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/dashboard/stats?date=${todayDate}`, { headers: { 'Authorization': `Bearer ${token}` } })
             ]);
 
             const studentsData = await studentsRes.json();

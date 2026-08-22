@@ -23,7 +23,7 @@ const QuizzesTab = () => {
     const fetchQuizzes = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/quizzes`, {
+            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/quizzes', {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();
@@ -39,7 +39,7 @@ const QuizzesTab = () => {
         if (!window.confirm('Are you sure you want to delete this quiz?')) return;
         try {
             const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/quizzes/${id}`, {
-                method: `DELETE',
+                method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             if (res.ok) {
@@ -70,7 +70,7 @@ const QuizzesTab = () => {
         e.preventDefault();
         setStatus({ type: 'loading', message: 'Creating quiz...' });
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/quizzes`, {
+            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/quizzes', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

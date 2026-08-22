@@ -26,7 +26,7 @@ const BooksTab = () => {
     const fetchBooks = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/books`, {
+            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/books', {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();
@@ -43,7 +43,7 @@ const BooksTab = () => {
         if (!window.confirm("Are you sure you want to delete this book?")) return;
         try {
             const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/books/${id}`, {
-                method: `DELETE',
+                method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             if (res.ok) {
@@ -71,7 +71,7 @@ const BooksTab = () => {
         if (fileHindi) formData.append('file_hindi', fileHindi);
 
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/books`, {
+            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/books', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`

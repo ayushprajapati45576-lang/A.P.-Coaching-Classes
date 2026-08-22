@@ -30,7 +30,7 @@ const NotesTab = () => {
     const fetchNotes = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/notes`, {
+            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/notes', {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();
@@ -46,7 +46,7 @@ const NotesTab = () => {
         if (!window.confirm("Are you sure you want to delete this note?")) return;
         try {
             const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/notes/${id}`, {
-                method: `DELETE',
+                method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             if (res.ok) {
@@ -74,7 +74,7 @@ const NotesTab = () => {
         formData.append('file', file);
 
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/notes`, {
+            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/notes', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
