@@ -797,11 +797,18 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 5000;
 
-initDB().then(() => {
-    server.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-        console.log("SQLite Database Initialized and Ready.");
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+    initDB().then(() => {
+        server.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+            console.log("SQLite Database Initialized and Ready.");
+        });
+    }).catch(err => {
+        console.error("Failed to initialize database:", err);
     });
-}).catch(err => {
-    console.error("Failed to initialize database:", err);
-});
+} else {
+    // In serverless environments, initialize the DB asynchronously and export the app
+    initDB().catch(err => console.error("Failed to initialize database:", err));
+}
+
+module.exports = app;
