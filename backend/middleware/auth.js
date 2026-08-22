@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { getDB } = require('../db');
+const supabase = require('../config/supabase');
 
 const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -12,10 +12,9 @@ const authenticateToken = async (req, res, next) => {
 
         // Single Device Login Validation
         try {
-            const db = await getDB();
-            const data = await db.get('SELECT active_session_id FROM users WHERE id = ?', [user.id]);
+            const { data, error } = await supabase.from('users').select('active_session_id').eq('id', user.id).maybeSingle();
 
-            if (!data) {
+            if (error || !data) {
                 return res.status(401).json({ error: "User not found" });
             }
 
