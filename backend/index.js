@@ -568,9 +568,10 @@ app.get('/api/student/results', authenticateToken, async (req, res) => {
 app.post('/api/fees', authenticateToken, requireRole('teacher'), async (req, res) => {
     const { student_id, amount, status, due_date, paid_date } = req.body;
     try {
-        await supabase.from('fees').insert({
+        const { error } = await supabase.from('fees').insert({
             id: crypto.randomUUID(), student_id, amount, status, due_date, paid_date, recorded_by: req.user.id
         });
+        if (error) return res.status(400).json({ error: error.message });
         res.status(201).json({ message: "Fee record added" });
     } catch (err) {
         res.status(500).json({ error: "Internal server error" });
@@ -608,7 +609,8 @@ app.delete('/api/fees/:id', authenticateToken, requireRole('teacher'), async (re
 app.put('/api/fees/:id', authenticateToken, requireRole('teacher'), async (req, res) => {
     const { student_id, amount, status, due_date, paid_date } = req.body;
     try {
-        await supabase.from('fees').update({ student_id, amount, status, due_date, paid_date }).eq('id', req.params.id);
+        const { error } = await supabase.from('fees').update({ student_id, amount, status, due_date, paid_date }).eq('id', req.params.id);
+        if (error) return res.status(400).json({ error: error.message });
         res.json({ message: "Fee record updated" });
     } catch (err) {
         res.status(500).json({ error: "Internal server error" });
