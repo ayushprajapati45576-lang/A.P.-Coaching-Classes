@@ -80,18 +80,25 @@ app.post('/api/auth/login', async (req, res) => {
         await supabase.from('users').update({ active_session_id: sessionId }).eq('id', user.id);
 
         let className = 'General';
+        let fullName = '';
         if (user.role === 'student') {
-            const { data: studentInfo } = await supabase.from('students').select('class_name').eq('id', user.id).maybeSingle();
-            if (studentInfo && studentInfo.class_name) className = studentInfo.class_name;
+            const { data: studentInfo } = await supabase.from('students').select('class_name, full_name').eq('id', user.id).maybeSingle();
+            if (studentInfo) {
+                if (studentInfo.class_name) className = studentInfo.class_name;
+                if (studentInfo.full_name) fullName = studentInfo.full_name;
+            }
+        } else if (user.role === 'teacher') {
+            if (user.email === 'prajapatianil1975@gmail.com') fullName = 'Anil Kumar Prajapati';
+            else fullName = 'Admin / Principal';
         }
 
         const token = jwt.sign(
-            { id: user.id, email: user.email, role: user.role, sessionId: sessionId, class_name: className },
+            { id: user.id, email: user.email, role: user.role, sessionId: sessionId, class_name: className, full_name: fullName },
             process.env.JWT_SECRET || 'secret',
             { expiresIn: '24h' }
         );
 
-        res.json({ token, role: user.role, email: user.email, id: user.id, class_name: className });
+        res.json({ token, role: user.role, email: user.email, id: user.id, class_name: className, full_name: fullName });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Internal server error" });

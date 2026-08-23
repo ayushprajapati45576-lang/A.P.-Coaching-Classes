@@ -87,7 +87,7 @@ const StudentOverviewTab = ({ setActiveTab }) => {
             
             {/* Welcome Banner */}
             <div className="glass-panel" style={{ padding: '2rem', background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))', border: 'none', color: 'white', borderRadius: '12px' }}>
-                <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '2rem' }}>Welcome Back, {user?.email.split('@')[0]}! 👋</h1>
+                <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '2rem' }}>Welcome Back, {user?.full_name || (user?.email && user.email.split('@')[0])}! 👋</h1>
                 <p style={{ margin: 0, opacity: 0.9 }}>Here is an overview of your current progress and recent updates.</p>
             </div>
 

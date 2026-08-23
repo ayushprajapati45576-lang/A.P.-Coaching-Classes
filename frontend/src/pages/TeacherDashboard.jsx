@@ -116,7 +116,14 @@ const TeacherDashboard = () => {
                     >Quizzes</button>
                 </nav>
                 <div className={styles.sidebarFooter}>
-                    <p>{user?.email}</p>
+                    <p style={{ fontWeight: '500', marginBottom: '0.25rem' }}>
+                        {user?.email === 'prajapatianil1975@gmail.com' ? 'Anil Kumar Prajapati' : 
+                         user?.email === 'teacher@coaching.com' ? 'Admin / Principal' : 
+                         user?.email}
+                    </p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem', wordBreak: 'break-all' }}>
+                        {user?.email}
+                    </p>
                     <button onClick={logout} className={styles.logoutBtn}>Logout</button>
                 </div>
             </aside>

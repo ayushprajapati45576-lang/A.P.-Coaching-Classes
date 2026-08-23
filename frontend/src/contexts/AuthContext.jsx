@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }) => {
 
         const data = await res.json();
         localStorage.setItem('token', data.token);
-        setUser({ id: data.id, email: data.email, role: data.role, class_name: data.class_name });
+        setUser({ id: data.id, email: data.email, role: data.role, class_name: data.class_name, full_name: data.full_name });
     };
 
     const logout = () => {
