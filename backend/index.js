@@ -633,8 +633,22 @@ app.get('/api/student/fees', authenticateToken, async (req, res) => {
     }
 });
 
-app.get('/api/me', authenticateToken, (req, res) => {
-    res.json(req.user);
+app.get('/api/me', authenticateToken, async (req, res) => {
+    try {
+        let fullName = req.user.full_name || '';
+        if (!fullName) {
+            if (req.user.role === 'student') {
+                const { data: studentInfo } = await supabase.from('students').select('full_name').eq('id', req.user.id).maybeSingle();
+                if (studentInfo && studentInfo.full_name) fullName = studentInfo.full_name;
+            } else if (req.user.role === 'teacher') {
+                if (req.user.email === 'prajapatianil1975@gmail.com') fullName = 'Anil Kumar Prajapati';
+                else fullName = 'Admin / Principal';
+            }
+        }
+        res.json({ ...req.user, full_name: fullName });
+    } catch (err) {
+        res.json(req.user);
+    }
 });
 
 // --- Notifications ---
