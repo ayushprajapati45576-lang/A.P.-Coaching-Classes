@@ -90,7 +90,7 @@ const Home = () => {
           variants={containerVariants}
         >
           <motion.div variants={itemVariants} className={styles.statItem}>
-            <div className={styles.statValue}>500+</div>
+            <div className={styles.statValue}>50,000+</div>
             <div className={styles.statLabel}>Students Guided</div>
           </motion.div>
           <motion.div variants={itemVariants} className={styles.statItem}>
