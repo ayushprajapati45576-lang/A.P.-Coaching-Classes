@@ -2,7 +2,7 @@
   --color-primary: #3B82F6;
   --color-primary-hover: #2563EB;
   display: flex;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: transparent;
   color: var(--color-text-main);

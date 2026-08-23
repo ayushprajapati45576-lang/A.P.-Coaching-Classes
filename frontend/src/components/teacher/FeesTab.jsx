@@ -94,7 +94,7 @@ const FeesTab = () => {
             const url = editId ? `/api/fees/${editId}` : '/api/fees';
             const method = editId ? 'PUT' : 'POST';
 
-            const res = await fetch(url, {
+            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + url, {
                 method: method,
                 headers: {
                     'Content-Type': 'application/json',

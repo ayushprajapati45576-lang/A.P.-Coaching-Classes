@@ -1,5 +1,5 @@
 .homeContainer {
-  min-height: 100vh;
+  min-height: 100dvh;
   background-color: transparent;
   background-image:
     linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
