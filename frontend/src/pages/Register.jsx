@@ -111,6 +111,7 @@ const Register = () => {
                 <option value="8">Class 8</option>
                 <option value="9">Class 9</option>
                 <option value="10">Class 10</option>
+                <option value="11">Class 11</option>
                 <option value="12">Class 12</option>
                 <option value="General">General / Other</option>
               </select>

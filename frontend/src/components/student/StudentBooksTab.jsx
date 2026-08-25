@@ -120,7 +120,7 @@ const StudentBooksTab = () => {
                     {activeClass ? (
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <button onClick={() => setActiveClass(null)} style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '1.5rem', padding: 0 }}>←</button>
-                            {['8', '9', '10', '12'].includes(activeClass) ? `Class ${activeClass} Books` : 'General Books'}
+                            {['8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass} Books` : 'General Books'}
                         </span>
                     ) : 'Digital Library'}
                 </h2>

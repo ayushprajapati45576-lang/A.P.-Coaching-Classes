@@ -139,12 +139,12 @@ const NotesTab = () => {
                         {activeSubject ? (
                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <button onClick={() => setActiveSubject(null)} style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '1.5rem', padding: 0 }}>←</button>
-                                {['8', '9', '10', '12'].includes(activeClass) ? `Class ${activeClass}` : activeClass} / {activeSubject}
+                                {['8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass}` : activeClass} / {activeSubject}
                             </span>
                         ) : activeClass ? (
                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <button onClick={() => setActiveClass(null)} style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '1.5rem', padding: 0 }}>←</button>
-                                {['8', '9', '10', '12'].includes(activeClass) ? `Class ${activeClass}` : activeClass} Subjects
+                                {['8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass}` : activeClass} Subjects
                             </span>
                         ) : (
                             'Study Notes Folders'
@@ -171,7 +171,7 @@ const NotesTab = () => {
 
                         {/* Level 2: Subjects */}
                         {activeClass && !activeSubject && (
-                            uniqueSubjects.length === 0 ? <p style={{ color: 'var(--color-text-muted)' }}>No subjects found in {['8', '9', '10', '12'].includes(activeClass) ? `Class ${activeClass}` : activeClass}. Upload a note to create a subject folder.</p> :
+                            uniqueSubjects.length === 0 ? <p style={{ color: 'var(--color-text-muted)' }}>No subjects found in {['8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass}` : activeClass}. Upload a note to create a subject folder.</p> :
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
                                 {uniqueSubjects.map(sub => (
                                     <FolderCard key={sub} title={sub} count={filteredByClass.filter(n => n.subject === sub).length} onClick={() => setActiveSubject(sub)} color="#fbbf24" emoji="📘" />
@@ -259,6 +259,7 @@ const NotesTab = () => {
                             <option value="8">Class 8</option>
                             <option value="9">Class 9</option>
                             <option value="10">Class 10</option>
+                            <option value="11">Class 11</option>
                             <option value="12">Class 12</option>
                             <option value="General">General</option>
                         </select>

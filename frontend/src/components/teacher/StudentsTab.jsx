@@ -234,7 +234,7 @@ const StudentsTab = () => {
                                             </div>
                                         </td>
                                         <td style={{ padding: '0.75rem' }}>{s.father_name || '-'}</td>
-                                        <td style={{ padding: '0.75rem' }}>{['8', '9', '10', '12'].includes(s.class_name) ? `Class ${s.class_name}` : s.class_name}</td>
+                                        <td style={{ padding: '0.75rem' }}>{['8', '9', '10', '11', '12'].includes(s.class_name) ? `Class ${s.class_name}` : s.class_name}</td>
                                         <td style={{ padding: '0.75rem' }}>{s.users?.email}</td>
 
                                         <td style={{ padding: '0.75rem' }}>
@@ -332,6 +332,7 @@ const StudentsTab = () => {
                         <option value="8">Class 8</option>
                         <option value="9">Class 9</option>
                         <option value="10">Class 10</option>
+                        <option value="11">Class 11</option>
                         <option value="12">Class 12</option>
                         <option value="General">General / Other</option>
                     </select>

@@ -211,7 +211,7 @@ const BooksTab = () => {
                         {activeClass ? (
                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <button onClick={() => setActiveClass(null)} style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '1.5rem', padding: 0 }}>←</button>
-                                {['8', '9', '10', '12'].includes(activeClass) ? `Class ${activeClass} Books` : 'General Books'}
+                                {['8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass} Books` : 'General Books'}
                             </span>
                         ) : 'Library Management'}
                     </h2>
@@ -263,6 +263,7 @@ const BooksTab = () => {
                         <option value="8">Class 8</option>
                         <option value="9">Class 9</option>
                         <option value="10">Class 10</option>
+                        <option value="11">Class 11</option>
                         <option value="12">Class 12</option>
                         <option value="General">General / Other</option>
                     </select>
