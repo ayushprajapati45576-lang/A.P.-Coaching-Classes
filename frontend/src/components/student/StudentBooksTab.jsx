@@ -27,8 +27,9 @@ const StudentBooksTab = () => {
     const class8Books = books.filter(b => String(b.id).startsWith('ncert-8') || b.title.includes('Class 8') || b.class_name === '8');
     const class9Books = books.filter(b => String(b.id).startsWith('ncert-9') || b.title.includes('Class 9') || b.class_name === '9');
     const class10Books = books.filter(b => String(b.id).startsWith('ncert-10') || b.title.includes('Class 10') || b.class_name === '10');
+    const class11Books = books.filter(b => String(b.id).startsWith('ncert-11') || b.title.includes('Class 11') || b.class_name === '11');
     const class12Books = books.filter(b => String(b.id).startsWith('ncert-12') || b.title.includes('Class 12') || b.class_name === '12');
-    const otherBooks = books.filter(b => !class8Books.includes(b) && !class9Books.includes(b) && !class10Books.includes(b) && !class12Books.includes(b));
+    const otherBooks = books.filter(b => !class8Books.includes(b) && !class9Books.includes(b) && !class10Books.includes(b) && !class11Books.includes(b) && !class12Books.includes(b));
 
     const renderBooks = (bookList) => (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
@@ -132,6 +133,7 @@ const StudentBooksTab = () => {
                         <FolderCard title="Class 8" count={class8Books.length} onClick={() => setActiveClass('8')} color="#a78bfa" />
                         <FolderCard title="Class 9" count={class9Books.length} onClick={() => setActiveClass('9')} color="#fb923c" />
                         <FolderCard title="Class 10" count={class10Books.length} onClick={() => setActiveClass('10')} color="#60a5fa" />
+                            <FolderCard title="Class 11" count={class11Books.length} onClick={() => setActiveClass('11')} color="#fcd34d" />
                         <FolderCard title="Class 12" count={class12Books.length} onClick={() => setActiveClass('12')} color="#34d399" />
                         <FolderCard title="General" count={otherBooks.length} onClick={() => setActiveClass('General')} color="#f472b6" />
                     </div>
@@ -139,6 +141,7 @@ const StudentBooksTab = () => {
                     activeClass === '8' ? renderBooks(class8Books) :
                     activeClass === '9' ? renderBooks(class9Books) :
                     activeClass === '10' ? renderBooks(class10Books) :
+                    activeClass === '11' ? renderBooks(class11Books) :
                     activeClass === '12' ? renderBooks(class12Books) :
                     renderBooks(otherBooks)
                 )
