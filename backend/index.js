@@ -88,8 +88,8 @@ app.post('/api/auth/login', async (req, res) => {
                 if (studentInfo.full_name) fullName = studentInfo.full_name;
             }
         } else if (user.role === 'teacher') {
-            if (user.email === 'prajapatianil1975@gmail.com') fullName = 'Anil Kumar Prajapati';
-            else fullName = 'Admin / Principal';
+            const emailPrefix = user.email.split('@')[0];
+            fullName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
         }
 
         const token = jwt.sign(
@@ -641,8 +641,8 @@ app.get('/api/me', authenticateToken, async (req, res) => {
                 const { data: studentInfo } = await supabase.from('students').select('full_name').eq('id', req.user.id).maybeSingle();
                 if (studentInfo && studentInfo.full_name) fullName = studentInfo.full_name;
             } else if (req.user.role === 'teacher') {
-                if (req.user.email === 'prajapatianil1975@gmail.com') fullName = 'Anil Kumar Prajapati';
-                else fullName = 'Admin / Principal';
+                const emailPrefix = req.user.email.split('@')[0];
+                fullName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
             }
         }
         res.json({ ...req.user, full_name: fullName });
