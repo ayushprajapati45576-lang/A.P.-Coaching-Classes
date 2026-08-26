@@ -164,6 +164,7 @@ const NotesTab = () => {
                                 <FolderCard title="Class 8" count={notes.filter(n => n.class_name === '8').length} onClick={() => setActiveClass('8')} color="#a78bfa" emoji="📐" />
                                 <FolderCard title="Class 9" count={notes.filter(n => n.class_name === '9').length} onClick={() => setActiveClass('9')} color="#fb923c" emoji="🔬" />
                                 <FolderCard title="Class 10" count={notes.filter(n => n.class_name === '10').length} onClick={() => setActiveClass('10')} color="#60a5fa" emoji="🎒" />
+                                <FolderCard title="Class 11" count={notes.filter(n => n.class_name === '11').length} onClick={() => setActiveClass('11')} color="#fcd34d" emoji="🏫" />
                                 <FolderCard title="Class 12" count={notes.filter(n => n.class_name === '12').length} onClick={() => setActiveClass('12')} color="#34d399" emoji="🎓" />
                                 <FolderCard title="General" count={notes.filter(n => n.class_name === 'General').length} onClick={() => setActiveClass('General')} color="#f472b6" emoji="📚" />
                             </div>
