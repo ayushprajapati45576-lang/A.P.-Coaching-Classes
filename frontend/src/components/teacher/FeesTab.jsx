@@ -44,7 +44,7 @@ const FeesTab = () => {
             });
             const data = await res.json();
             if (res.ok) {
-                const sortedData = data.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+                const sortedData = data.sort((a, b) => (a.full_name || '').trim().toLowerCase().localeCompare((b.full_name || '').trim().toLowerCase()));
                 setStudents(sortedData);
                 if (sortedData.length > 0) setFormData(prev => ({ ...prev, student_id: sortedData[0].id }));
             }

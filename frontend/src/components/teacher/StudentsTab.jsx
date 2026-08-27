@@ -30,7 +30,7 @@ const StudentsTab = () => {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();
-            if (res.ok) setStudents(data.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')));
+            if (res.ok) setStudents(data.sort((a, b) => (a.full_name || '').trim().toLowerCase().localeCompare((b.full_name || '').trim().toLowerCase())));
         } catch (err) {
             console.error(err);
         } finally {
