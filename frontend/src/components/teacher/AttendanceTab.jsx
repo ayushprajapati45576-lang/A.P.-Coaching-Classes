@@ -41,7 +41,7 @@ const AttendanceTab = () => {
             const studentsData = await studentsRes.json();
             if (!studentsRes.ok) throw new Error(studentsData.error);
 
-            setStudents(studentsData);
+            setStudents(studentsData.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')));
 
             const attRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/attendance?date=${date}`, {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
@@ -184,7 +184,7 @@ const AttendanceTab = () => {
             studentStats[record.student_id][record.status]++;
             studentStats[record.student_id].total++;
         });
-        return Object.values(studentStats);
+        return Object.values(studentStats).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     };
 
     const stats = processReport();

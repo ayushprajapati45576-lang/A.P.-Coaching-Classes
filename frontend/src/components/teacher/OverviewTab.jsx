@@ -24,7 +24,7 @@ const OverviewTab = () => {
             const studentsData = await studentsRes.json();
             const statsData = await statsRes.json();
 
-            if (studentsRes.ok) setStudents(studentsData);
+            if (studentsRes.ok) setStudents(studentsData.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')));
             if (statsRes.ok) setStats(statsData);
 
         } catch (err) {

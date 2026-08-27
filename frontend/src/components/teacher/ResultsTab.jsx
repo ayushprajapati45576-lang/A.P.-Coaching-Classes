@@ -43,8 +43,9 @@ const ResultsTab = () => {
             });
             const data = await res.json();
             if (res.ok) {
-                setStudents(data);
-                if (data.length > 0) setFormData(prev => ({ ...prev, student_id: data[0].id }));
+                const sortedData = data.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+                setStudents(sortedData);
+                if (sortedData.length > 0) setFormData(prev => ({ ...prev, student_id: sortedData[0].id }));
             }
         } catch (err) {
             console.error(err);
