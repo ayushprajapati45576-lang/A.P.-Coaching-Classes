@@ -31,7 +31,7 @@ const Home = () => {
       <nav className={styles.navbar}>
         <div className={styles.logo}>
           <Activity className={styles.logoIcon} size={28} />
-          A.P. COACHING CLASSES
+          A.P. COACHING CLASSES 
         </div>
         <div className={styles.navLinks}>
           <a href="#home">Home</a>
@@ -59,7 +59,7 @@ const Home = () => {
               🎓 Admissions Open for 2026-2027 Session
             </motion.div>
             <motion.h1 variants={itemVariants} className={styles.heroTitle}>
-              Excellence in Education<br />with A.P. COACHING
+              Excellence in Education<br />with A.P. COACHING CLASSES
             </motion.h1>
             <motion.p variants={itemVariants} className={styles.heroSubtitle}>
               Expert guidance for <strong>Class 8th to 10th (All Subjects)</strong> and Specialized <strong>Mathematics Coaching for Class 11th & 12th</strong>. We focus on conceptual clarity and board exam excellence.
