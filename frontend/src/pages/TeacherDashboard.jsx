@@ -139,7 +139,9 @@ const TeacherDashboard = () => {
                         }}>
                             {isSidebarCollapsed ? <ChevronRight size={24} /> : <ChevronLeft size={24} />}
                         </button>
-                        <h2>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')}</h2>
+                        <h2 style={{ fontSize: 'clamp(1.2rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')}
+                        </h2>
                     </div>
                 </header>
                 <div className={styles.content}>

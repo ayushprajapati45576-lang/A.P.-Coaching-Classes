@@ -87,7 +87,7 @@ const StudentOverviewTab = ({ setActiveTab }) => {
             
             {/* Welcome Banner */}
             <div className="glass-panel" style={{ padding: '2rem', background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))', border: 'none', color: 'white', borderRadius: '12px' }}>
-                <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '2rem' }}>Welcome Back, {user?.full_name || (user?.email && user.email.split('@')[0])}! 👋</h1>
+                <h1 style={{ margin: '0 0 0.5rem 0', fontSize: 'clamp(1.5rem, 5vw, 2rem)' }}>Welcome Back, {user?.full_name || (user?.email && user.email.split('@')[0])}! 👋</h1>
                 <p style={{ margin: 0, opacity: 0.9 }}>Here is an overview of your current progress and recent updates.</p>
             </div>
 
@@ -125,7 +125,7 @@ const StudentOverviewTab = ({ setActiveTab }) => {
             </div>
 
             {/* Lower Section: Notices & Quick Links */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem' }}>
                 
                 {/* Recent Announcements */}
                 <div className="glass-panel" style={{ padding: '1.5rem' }}>
