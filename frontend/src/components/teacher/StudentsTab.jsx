@@ -11,6 +11,8 @@ const StudentsTab = () => {
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedIds, setSelectedIds] = useState([]);
+    const [activeClass, setActiveClass] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
 
     // Form State
@@ -170,15 +172,81 @@ const StudentsTab = () => {
         setView('edit');
     };
 
+    const FolderCard = ({ title, count, onClick, color }) => (
+        <div onClick={onClick} style={{
+            background: `linear-gradient(135deg, var(--color-border) 0%, var(--color-surface-hover) 100%)`,
+            border: `1px solid ${color}`,
+            borderRadius: '12px',
+            padding: '2rem',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'transform 0.2s, box-shadow 0.2s',
+            boxShadow: `0 4px 20px ${color}20`
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = `0 8px 25px ${color}40`; }}
+        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 20px ${color}20`; }}
+        >
+            <div style={{ fontSize: '4rem', marginBottom: '1rem', color: color }}>📁</div>
+            <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--color-text-main)', fontSize: '1.5rem', fontWeight: '500' }}>{title}</h3>
+            <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>{count} Students</p>
+        </div>
+    );
+
+    const getFilteredStudents = () => {
+        let filtered = students;
+        
+        if (activeClass) {
+            filtered = filtered.filter(s => String(s.class_name) === activeClass);
+        }
+        
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(s => 
+                (s.full_name && s.full_name.toLowerCase().includes(query)) ||
+                (s.phone && s.phone.toLowerCase().includes(query)) ||
+                (s.father_name && s.father_name.toLowerCase().includes(query))
+            );
+        }
+        
+        return filtered;
+    };
+
+    const class6Students = students.filter(s => String(s.class_name) === '6');
+    const class7Students = students.filter(s => String(s.class_name) === '7');
+    const class8Students = students.filter(s => String(s.class_name) === '8');
+    const class9Students = students.filter(s => String(s.class_name) === '9');
+    const class10Students = students.filter(s => String(s.class_name) === '10');
+    const class11Students = students.filter(s => String(s.class_name) === '11');
+    const class12Students = students.filter(s => String(s.class_name) === '12');
+    const otherStudents = students.filter(s => !['6','7','8','9','10','11','12'].includes(String(s.class_name)));
+
     if (view === 'list') {
+        const displayStudents = getFilteredStudents();
         return (
             <div className={`glass-panel animate-fade-in`} style={{ padding: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-                    <h2 style={{ color: 'var(--color-primary)', margin: 0 }}>Manage Students</h2>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <h2 style={{ color: 'var(--color-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {activeClass ? (
+                            <>
+                                <button onClick={() => {setActiveClass(null); setSearchQuery('');}} style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '1.5rem', padding: 0 }}>←</button>
+                                {['6', '7', '8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass} Students` : 'General Students'}
+                            </>
+                        ) : 'Manage Students'}
+                    </h2>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <input 
+                            type="text" 
+                            placeholder="Search by name, phone..." 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            style={{ padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-surface-hover)', color: 'var(--color-text-main)', width: '250px' }}
+                        />
                         {selectedIds.length > 0 && (
                             <button onClick={handleBulkDelete} style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>
-                                Delete Selected ({selectedIds.length})
+                                Delete ({selectedIds.length})
                             </button>
                         )}
                         <button onClick={() => {
@@ -192,30 +260,41 @@ const StudentsTab = () => {
                     </div>
                 </div>
 
-                {loading ? <p>Loading...</p> : students.length === 0 ? <p>No students found.</p> : (
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                    <th style={{ padding: '0.75rem', width: '40px' }}>
-                                        <input 
-                                            type="checkbox" 
-                                            onChange={handleSelectAll} 
-                                            checked={students.length > 0 && selectedIds.length === students.length}
-                                            style={{ cursor: 'pointer' }}
-                                        />
-                                    </th>
-                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Name</th>
-                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Father's Name</th>
-                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Class</th>
-                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Email</th>
-
-                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Status</th>
-                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)', textAlign: 'right' }}>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {students.map((s) => (
+                {loading ? <p>Loading...</p> : (
+                    !activeClass && !searchQuery.trim() ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
+                            <FolderCard title="Class 6" count={class6Students.length} onClick={() => setActiveClass('6')} color="#818cf8" />
+                            <FolderCard title="Class 7" count={class7Students.length} onClick={() => setActiveClass('7')} color="#c084fc" />
+                            <FolderCard title="Class 8" count={class8Students.length} onClick={() => setActiveClass('8')} color="#a78bfa" />
+                            <FolderCard title="Class 9" count={class9Students.length} onClick={() => setActiveClass('9')} color="#fb923c" />
+                            <FolderCard title="Class 10" count={class10Students.length} onClick={() => setActiveClass('10')} color="#60a5fa" />
+                            <FolderCard title="Class 11" count={class11Students.length} onClick={() => setActiveClass('11')} color="#fcd34d" />
+                            <FolderCard title="Class 12" count={class12Students.length} onClick={() => setActiveClass('12')} color="#34d399" />
+                            <FolderCard title="General" count={otherStudents.length} onClick={() => setActiveClass('General')} color="#f472b6" />
+                        </div>
+                    ) : displayStudents.length === 0 ? <p>No students found.</p> : (
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                        <th style={{ padding: '0.75rem', width: '40px' }}>
+                                            <input 
+                                                type="checkbox" 
+                                                onChange={handleSelectAll} 
+                                                checked={displayStudents.length > 0 && selectedIds.length === displayStudents.length}
+                                                style={{ cursor: 'pointer' }}
+                                            />
+                                        </th>
+                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Name</th>
+                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Father's Name</th>
+                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Class</th>
+                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Email</th>
+                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Status</th>
+                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)', textAlign: 'right' }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {displayStudents.map((s) => (
                                     <tr key={s.id} style={{ borderBottom: '1px solid var(--color-border)', backgroundColor: selectedIds.includes(s.id) ? 'rgba(59, 130, 246, 0.05)' : 'transparent' }}>
                                         <td style={{ padding: '0.75rem' }}>
                                             <input 
@@ -305,6 +384,7 @@ const StudentsTab = () => {
                             </tbody>
                         </table>
                     </div>
+                    )
                 )}
             </div>
         );
