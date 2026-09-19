@@ -55,7 +55,7 @@ const InstallPwaPopup = () => {
         <div style={styles.content}>
           <img src="/logo.jpeg" alt="App Logo" style={styles.logo} />
           <div>
-            <h3 style={styles.title}>Install A.P Coaching</h3>
+            <h3 style={styles.title}>Install A.P COACHING CLASSES</h3>
             <p style={styles.text}>Install our app on your device for quick access and a better experience!</p>
           </div>
         </div>
