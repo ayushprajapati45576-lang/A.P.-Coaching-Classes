@@ -432,7 +432,7 @@
 /* Footer */
 .footer {
   position: relative;
-  padding: 8rem 5% 4rem;
+  padding: 4rem 5% 2rem;
   border-top: none;
   background: rgba(255, 255, 255, 0.5);
   display: flex;
@@ -577,7 +577,7 @@
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  margin-top: 6rem;
+  margin-top: 3rem;
   padding-top: 2rem;
   border-top: 1px solid var(--color-border);
 }

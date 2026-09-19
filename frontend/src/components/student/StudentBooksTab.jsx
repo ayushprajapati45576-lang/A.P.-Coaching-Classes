@@ -24,12 +24,14 @@ const StudentBooksTab = () => {
         }
     };
 
+    const class6Books = books.filter(b => String(b.id).startsWith('ncert-6') || b.title.includes('Class 6') || b.class_name === '6');
+    const class7Books = books.filter(b => String(b.id).startsWith('ncert-7') || b.title.includes('Class 7') || b.class_name === '7');
     const class8Books = books.filter(b => String(b.id).startsWith('ncert-8') || b.title.includes('Class 8') || b.class_name === '8');
     const class9Books = books.filter(b => String(b.id).startsWith('ncert-9') || b.title.includes('Class 9') || b.class_name === '9');
     const class10Books = books.filter(b => String(b.id).startsWith('ncert-10') || b.title.includes('Class 10') || b.class_name === '10');
     const class11Books = books.filter(b => String(b.id).startsWith('ncert-11') || b.title.includes('Class 11') || b.class_name === '11');
     const class12Books = books.filter(b => String(b.id).startsWith('ncert-12') || b.title.includes('Class 12') || b.class_name === '12');
-    const otherBooks = books.filter(b => !class8Books.includes(b) && !class9Books.includes(b) && !class10Books.includes(b) && !class11Books.includes(b) && !class12Books.includes(b));
+    const otherBooks = books.filter(b => !class6Books.includes(b) && !class7Books.includes(b) && !class8Books.includes(b) && !class9Books.includes(b) && !class10Books.includes(b) && !class11Books.includes(b) && !class12Books.includes(b));
 
     const renderBooks = (bookList) => (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
@@ -121,7 +123,7 @@ const StudentBooksTab = () => {
                     {activeClass ? (
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <button onClick={() => setActiveClass(null)} style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '1.5rem', padding: 0 }}>←</button>
-                            {['8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass} Books` : 'General Books'}
+                            {['6', '7', '8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass} Books` : 'General Books'}
                         </span>
                     ) : 'Digital Library'}
                 </h2>
@@ -130,6 +132,8 @@ const StudentBooksTab = () => {
             {loading ? <p style={{ color: 'var(--color-text-muted)' }}>Loading library...</p> : (
                 !activeClass ? (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
+                        {class6Books.length > 0 && <FolderCard title="Class 6" count={class6Books.length} onClick={() => setActiveClass('6')} color="#818cf8" />}
+                        {class7Books.length > 0 && <FolderCard title="Class 7" count={class7Books.length} onClick={() => setActiveClass('7')} color="#c084fc" />}
                         {class8Books.length > 0 && <FolderCard title="Class 8" count={class8Books.length} onClick={() => setActiveClass('8')} color="#a78bfa" />}
                         {class9Books.length > 0 && <FolderCard title="Class 9" count={class9Books.length} onClick={() => setActiveClass('9')} color="#fb923c" />}
                         {class10Books.length > 0 && <FolderCard title="Class 10" count={class10Books.length} onClick={() => setActiveClass('10')} color="#60a5fa" />}
@@ -139,6 +143,8 @@ const StudentBooksTab = () => {
                         {books.length === 0 && <p style={{ color: 'var(--color-text-muted)' }}>No books available.</p>}
                     </div>
                 ) : (
+                    activeClass === '6' ? renderBooks(class6Books) :
+                    activeClass === '7' ? renderBooks(class7Books) :
                     activeClass === '8' ? renderBooks(class8Books) :
                     activeClass === '9' ? renderBooks(class9Books) :
                     activeClass === '10' ? renderBooks(class10Books) :

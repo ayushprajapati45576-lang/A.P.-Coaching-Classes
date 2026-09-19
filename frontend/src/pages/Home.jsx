@@ -30,8 +30,8 @@ const Home = () => {
       {/* Navbar */}
       <nav className={styles.navbar}>
         <div className={styles.logo}>
-          <img src="/logo.jpeg" alt="Logo" className={styles.logoIcon} style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
-          A.P. COACHING CLASSES 
+          <Activity className={styles.logoIcon} size={28} />
+          A.P. COACHING CLASSES
         </div>
         <div className={styles.navLinks}>
           <a href="#home">Home</a>
@@ -60,9 +60,10 @@ const Home = () => {
             </motion.div>
             <motion.h1 variants={itemVariants} className={styles.heroTitle}>
               Excellence in Education<br />with A.P. Coaching Classes
+     
             </motion.h1>
             <motion.p variants={itemVariants} className={styles.heroSubtitle}>
-              Expert guidance for <strong>Class 8th to 10th (All Subjects)</strong> and Specialized <strong>Mathematics Coaching for Class 11th & 12th</strong>. We focus on conceptual clarity and board exam excellence.
+              Expert guidance for <strong>Class 6th to 10th (All Subjects)</strong> and Specialized <strong>Mathematics Coaching for Class 11th & 12th</strong>. We focus on conceptual clarity and board exam excellence.
             </motion.p>
             <motion.div variants={itemVariants} className={styles.ctaGroup}>
               <button className={styles.primaryCta} onClick={() => navigate('/login')}>
@@ -73,7 +74,7 @@ const Home = () => {
               </button>
             </motion.div>
           </div>
-          
+
           <motion.div variants={itemVariants} className={styles.heroImageWrapper}>
             <img src={heroImage} alt="Students studying together" className={styles.heroImg} />
             <div className={styles.heroImageGlow}></div>
@@ -120,7 +121,7 @@ const Home = () => {
               <div className={`${styles.featureIcon} ${styles.blue}`}>
                 <BookOpen size={32} />
               </div>
-              <h3 className={styles.featureTitle}>Class 8th to 10th (All Subjects)</h3>
+              <h3 className={styles.featureTitle}>Class 6th to 10th (All Subjects)</h3>
               <p className={styles.featureDesc}>
                 Comprehensive coaching covering Mathematics, Science, English, and Social Studies to build a rock-solid foundation for board exams.
               </p>
@@ -179,7 +180,7 @@ const Home = () => {
         </motion.section>
 
         {/* Pre-Footer CTA */}
-        <motion.section 
+        <motion.section
           className={styles.preFooter}
           initial="hidden"
           whileInView="visible"
@@ -202,7 +203,7 @@ const Home = () => {
 
           <div className={styles.footerBrand}>
             <div className={styles.footerLogo}>
-              <img src="/logo.jpeg" alt="Logo" className={styles.logoIcon} style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
+              <Activity className={styles.logoIcon} size={24} />
               A.P. COACHING
             </div>
             <p className={styles.footerTagline}>

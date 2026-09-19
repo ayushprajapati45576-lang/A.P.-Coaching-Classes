@@ -96,12 +96,14 @@ const BooksTab = () => {
         }
     };
 
+    const class6Books = books.filter(b => String(b.id).startsWith('ncert-6') || b.title.includes('Class 6') || b.class_name === '6');
+    const class7Books = books.filter(b => String(b.id).startsWith('ncert-7') || b.title.includes('Class 7') || b.class_name === '7');
     const class8Books = books.filter(b => String(b.id).startsWith('ncert-8') || b.title.includes('Class 8') || b.class_name === '8');
     const class9Books = books.filter(b => String(b.id).startsWith('ncert-9') || b.title.includes('Class 9') || b.class_name === '9');
     const class10Books = books.filter(b => String(b.id).startsWith('ncert-10') || b.title.includes('Class 10') || b.class_name === '10');
     const class11Books = books.filter(b => String(b.id).startsWith('ncert-11') || b.title.includes('Class 11') || b.class_name === '11');
     const class12Books = books.filter(b => String(b.id).startsWith('ncert-12') || b.title.includes('Class 12') || b.class_name === '12');
-    const otherBooks = books.filter(b => !class8Books.includes(b) && !class9Books.includes(b) && !class10Books.includes(b) && !class11Books.includes(b) && !class12Books.includes(b));
+    const otherBooks = books.filter(b => !class6Books.includes(b) && !class7Books.includes(b) && !class8Books.includes(b) && !class9Books.includes(b) && !class10Books.includes(b) && !class11Books.includes(b) && !class12Books.includes(b));
 
     const FolderCard = ({ title, count, onClick, color }) => (
         <div onClick={onClick} style={{
@@ -212,7 +214,7 @@ const BooksTab = () => {
                         {activeClass ? (
                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <button onClick={() => setActiveClass(null)} style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '1.5rem', padding: 0 }}>←</button>
-                                {['8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass} Books` : 'General Books'}
+                                {['6', '7', '8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass} Books` : 'General Books'}
                             </span>
                         ) : 'Library Management'}
                     </h2>
@@ -224,6 +226,8 @@ const BooksTab = () => {
                 {loading ? <p style={{ color: 'var(--color-text-muted)' }}>Loading library...</p> : (
                     !activeClass ? (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
+                            <FolderCard title="Class 6" count={class6Books.length} onClick={() => setActiveClass('6')} color="#818cf8" />
+                            <FolderCard title="Class 7" count={class7Books.length} onClick={() => setActiveClass('7')} color="#c084fc" />
                             <FolderCard title="Class 8" count={class8Books.length} onClick={() => setActiveClass('8')} color="#a78bfa" />
                             <FolderCard title="Class 9" count={class9Books.length} onClick={() => setActiveClass('9')} color="#fb923c" />
                             <FolderCard title="Class 10" count={class10Books.length} onClick={() => setActiveClass('10')} color="#60a5fa" />
@@ -232,6 +236,8 @@ const BooksTab = () => {
                             <FolderCard title="General" count={otherBooks.length} onClick={() => setActiveClass('General')} color="#f472b6" />
                         </div>
                     ) : (
+                        activeClass === '6' ? renderTable(class6Books, 'Class 6th Books') :
+                        activeClass === '7' ? renderTable(class7Books, 'Class 7th Books') :
                         activeClass === '8' ? renderTable(class8Books, 'Class 8th Books') :
                         activeClass === '9' ? renderTable(class9Books, 'Class 9th Books') :
                         activeClass === '10' ? renderTable(class10Books, 'Class 10th Books') :
@@ -263,6 +269,8 @@ const BooksTab = () => {
                 <div className={styles.inputGroup}>
                     <label>Class</label>
                     <select value={className} onChange={e => setClassName(e.target.value)} className={styles.selectInput}>
+                        <option value="6">Class 6</option>
+                        <option value="7">Class 7</option>
                         <option value="8">Class 8</option>
                         <option value="9">Class 9</option>
                         <option value="10">Class 10</option>

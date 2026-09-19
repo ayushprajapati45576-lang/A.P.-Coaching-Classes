@@ -323,6 +323,16 @@ app.get('/api/books', authenticateToken, async (req, res) => {
         
         // Static NCERT Books
         let ncertBooks = [
+            { id: 'ncert-6-math', title: 'Class 6 NCERT Mathematics', author: 'NCERT', file_url: 'https://ncert.nic.in/textbook.php?femh1=0-14', file_url_hindi: 'https://ncert.nic.in/textbook.php?fhmh1=0-14', created_at: new Date().toISOString(), class_name: '6' },
+            { id: 'ncert-6-sci', title: 'Class 6 NCERT Science', author: 'NCERT', file_url: 'https://ncert.nic.in/textbook.php?fesc1=0-11', file_url_hindi: 'https://ncert.nic.in/textbook.php?fhsc1=0-11', created_at: new Date().toISOString(), class_name: '6' },
+            { id: 'ncert-6-eng', title: 'Class 6 NCERT English', author: 'NCERT', file_url: 'https://ncert.nic.in/textbook.php?fehd1=0-10', file_url_hindi: '', created_at: new Date().toISOString(), class_name: '6' },
+            { id: 'ncert-6-hin', title: 'Class 6 NCERT Hindi', author: 'NCERT', file_url: '', file_url_hindi: 'https://ncert.nic.in/textbook.php?fhvs1=0-17', created_at: new Date().toISOString(), class_name: '6' },
+            { id: 'ncert-6-sst', title: 'Class 6 NCERT Social Science', author: 'NCERT', file_url: 'https://ncert.nic.in/textbook.php?fess1=0-9', file_url_hindi: 'https://ncert.nic.in/textbook.php?fhss1=0-9', created_at: new Date().toISOString(), class_name: '6' },
+            { id: 'ncert-7-math', title: 'Class 7 NCERT Mathematics', author: 'NCERT', file_url: 'https://ncert.nic.in/textbook.php?gemh1=0-13', file_url_hindi: 'https://ncert.nic.in/textbook.php?ghmh1=0-13', created_at: new Date().toISOString(), class_name: '7' },
+            { id: 'ncert-7-sci', title: 'Class 7 NCERT Science', author: 'NCERT', file_url: 'https://ncert.nic.in/textbook.php?gesc1=0-13', file_url_hindi: 'https://ncert.nic.in/textbook.php?ghsc1=0-13', created_at: new Date().toISOString(), class_name: '7' },
+            { id: 'ncert-7-eng', title: 'Class 7 NCERT English', author: 'NCERT', file_url: 'https://ncert.nic.in/textbook.php?gehc1=0-10', file_url_hindi: '', created_at: new Date().toISOString(), class_name: '7' },
+            { id: 'ncert-7-hin', title: 'Class 7 NCERT Hindi', author: 'NCERT', file_url: '', file_url_hindi: 'https://ncert.nic.in/textbook.php?ghvs1=0-15', created_at: new Date().toISOString(), class_name: '7' },
+            { id: 'ncert-7-sst', title: 'Class 7 NCERT Social Science', author: 'NCERT', file_url: 'https://ncert.nic.in/textbook.php?gess1=0-8', file_url_hindi: 'https://ncert.nic.in/textbook.php?ghss1=0-8', created_at: new Date().toISOString(), class_name: '7' },
             { id: 'ncert-8-math', title: 'Class 8 NCERT Mathematics', author: 'NCERT', file_url: 'https://ncert.nic.in/textbook.php?hemh1=0-16', file_url_hindi: 'https://ncert.nic.in/textbook.php?hhmh1=0-16', created_at: new Date().toISOString(), class_name: '8' },
             { id: 'ncert-8-sci', title: 'Class 8 NCERT Science', author: 'NCERT', file_url: 'https://ncert.nic.in/textbook.php?hesc1=0-13', file_url_hindi: 'https://ncert.nic.in/textbook.php?hhsc1=0-13', created_at: new Date().toISOString(), class_name: '8' },
             { id: 'ncert-8-eng', title: 'Class 8 NCERT English', author: 'NCERT', file_url: 'https://ncert.nic.in/textbook.php?hehd1=0-10', file_url_hindi: '', created_at: new Date().toISOString(), class_name: '8' },

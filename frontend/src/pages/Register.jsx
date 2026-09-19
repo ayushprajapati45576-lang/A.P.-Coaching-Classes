@@ -108,6 +108,8 @@ const Register = () => {
                 onChange={(e) => setFormData({...formData, class_name: e.target.value})}
                 style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-main)' }}
               >
+                <option value="6">Class 6</option>
+                <option value="7">Class 7</option>
                 <option value="8">Class 8</option>
                 <option value="9">Class 9</option>
                 <option value="10">Class 10</option>
