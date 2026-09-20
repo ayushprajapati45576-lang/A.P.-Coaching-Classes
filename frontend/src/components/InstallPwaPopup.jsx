@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 const InstallPwaPopup = () => {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
+  const [isIosPrompt, setIsIosPrompt] = useState(false);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
@@ -22,6 +23,20 @@ const InstallPwaPopup = () => {
       setShowPopup(false);
       setDeferredPrompt(null);
     });
+
+    // iOS Detection
+    const isIos = () => {
+      const userAgent = window.navigator.userAgent.toLowerCase();
+      return /iphone|ipad|ipod/.test(userAgent);
+    };
+    
+    // Check if already installed on iOS
+    const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone);
+
+    if (isIos() && !isInStandaloneMode()) {
+      setIsIosPrompt(true);
+      setTimeout(() => setShowPopup(true), 2000);
+    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -60,9 +75,15 @@ const InstallPwaPopup = () => {
           </div>
         </div>
         <div style={styles.actions}>
-          <button style={styles.installBtn} onClick={handleInstallClick}>
-            Install App
-          </button>
+          {isIosPrompt ? (
+            <div style={styles.iosInstruction}>
+              Tap the <strong>Share</strong> icon <span style={{ fontSize: '20px', verticalAlign: 'middle' }}>⍐</span> below and select <strong>Add to Home Screen</strong> <span style={{ fontSize: '20px', verticalAlign: 'middle' }}>➕</span>.
+            </div>
+          ) : (
+            <button style={styles.installBtn} onClick={handleInstallClick}>
+              Install App
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -140,6 +161,16 @@ const styles = {
     fontSize: '14px',
     cursor: 'pointer',
     transition: 'background 0.2s',
+  },
+  iosInstruction: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: '12px',
+    borderRadius: '8px',
+    fontSize: '14px',
+    color: '#ffffff',
+    lineHeight: '1.5',
+    textAlign: 'center',
+    width: '100%',
   }
 };
 
