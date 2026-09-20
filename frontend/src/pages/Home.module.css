@@ -9,6 +9,9 @@
   position: relative;
   overflow: hidden;
   font-family: var(--font-family-main);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 /* Ambient glowing orbs */
@@ -20,6 +23,10 @@
   border-radius: 50%;
   animation: float 20s infinite ease-in-out;
   z-index: -1;
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .orb1 {
@@ -284,6 +291,9 @@
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
   animation: floatingCard 6s ease-in-out infinite;
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .statItem:nth-child(even) {
@@ -353,6 +363,9 @@
   --shadow-color: rgba(0, 0, 0, 0.08);
   --shadow-color-hover: rgba(0, 0, 0, 0.15);
   color: #ffffff;
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .featureCard:nth-child(even) {
