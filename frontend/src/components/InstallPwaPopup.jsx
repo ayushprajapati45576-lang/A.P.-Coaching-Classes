@@ -66,7 +66,11 @@ const InstallPwaPopup = () => {
   return (
     <div style={styles.overlay}>
       <div style={styles.popup} className="glass-panel animate-fade-in">
-        <button style={styles.closeBtn} onClick={handleClose}>×</button>
+        <button style={styles.closeBtn} onClick={handleClose} aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M1 13L13 1M1 1L13 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
         <div style={styles.content}>
           <img src="/logo.jpeg" alt="App Logo" style={styles.logo} />
           <div>
@@ -114,14 +118,21 @@ const styles = {
   },
   closeBtn: {
     position: 'absolute',
-    top: '10px',
-    right: '15px',
-    background: 'none',
+    top: '12px',
+    right: '12px',
+    background: 'rgba(255, 255, 255, 0.1)',
     border: 'none',
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: '24px',
+    color: '#ffffff',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     cursor: 'pointer',
     padding: '0',
+    transition: 'background 0.2s',
+    zIndex: 10,
   },
   content: {
     display: 'flex',
