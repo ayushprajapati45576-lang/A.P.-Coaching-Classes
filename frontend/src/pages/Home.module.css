@@ -84,6 +84,13 @@
   color: var(--color-secondary);
 }
 
+.logoImage {
+  height: 32px;
+  width: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .navLinks {
   display: flex;
   gap: 2rem;

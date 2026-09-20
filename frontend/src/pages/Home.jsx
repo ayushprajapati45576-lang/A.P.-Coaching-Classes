@@ -30,7 +30,7 @@ const Home = () => {
       {/* Navbar */}
       <nav className={styles.navbar}>
         <div className={styles.logo}>
-          <Activity className={styles.logoIcon} size={28} />
+          <img src="/logo.jpeg" alt="A.P. Coaching Classes Logo" className={styles.logoImage} />
           A.P. COACHING CLASSES
         </div>
         <div className={styles.navLinks}>
@@ -203,7 +203,7 @@ const Home = () => {
 
           <div className={styles.footerBrand}>
             <div className={styles.footerLogo}>
-              <Activity className={styles.logoIcon} size={24} />
+              <img src="/logo.jpeg" alt="A.P. Coaching Logo" className={styles.logoImage} />
               A.P. COACHING
             </div>
             <p className={styles.footerTagline}>
