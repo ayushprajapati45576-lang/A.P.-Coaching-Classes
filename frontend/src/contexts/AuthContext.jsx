@@ -10,15 +10,11 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
 
-    useEffect(() => {
-        // Check for token on mount
-        const token = localStorage.getItem('token');
-        if (token) {
-            fetchUser(token);
-        } else {
-            setLoading(false);
-        }
-    }, []);
+    const logout = () => {
+        localStorage.removeItem('token');
+        setUser(null);
+        navigate('/');
+    };
 
     const fetchUser = async (token) => {
         try {
@@ -40,6 +36,30 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        // Global fetch interceptor to catch 401/403 Session Expired errors
+        const originalFetch = window.fetch;
+        window.fetch = async (...args) => {
+            const response = await originalFetch(...args);
+            if ((response.status === 401 || response.status === 403) && args[0] && !args[0].toString().includes('/api/auth/login')) {
+                logout();
+            }
+            return response;
+        };
+
+        // Check for token on mount
+        const token = localStorage.getItem('token');
+        if (token) {
+            fetchUser(token);
+        } else {
+            setLoading(false);
+        }
+
+        return () => {
+            window.fetch = originalFetch;
+        };
+    }, []);
 
     const login = async (email, password) => {
         const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/auth/login', {
@@ -63,12 +83,6 @@ export const AuthProvider = ({ children }) => {
         const data = await res.json();
         localStorage.setItem('token', data.token);
         setUser({ id: data.id, email: data.email, role: data.role, class_name: data.class_name, full_name: data.full_name });
-    };
-
-    const logout = () => {
-        localStorage.removeItem('token');
-        setUser(null);
-        navigate('/');
     };
 
     return (
