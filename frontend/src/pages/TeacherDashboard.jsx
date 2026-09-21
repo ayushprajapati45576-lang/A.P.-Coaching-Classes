@@ -35,6 +35,13 @@ const TeacherDashboard = () => {
     }, []);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const renderTabContent = () => {
         switch (activeTab) {
@@ -137,7 +144,7 @@ const TeacherDashboard = () => {
                                 setIsSidebarCollapsed(!isSidebarCollapsed);
                             }
                         }}>
-                            {isSidebarCollapsed ? <Menu size={24} /> : <X size={24} />}
+                            {isMobile ? <Menu size={24} /> : (isSidebarCollapsed ? <Menu size={24} /> : <X size={24} />)}
                         </button>
                         <h2 style={{ fontSize: 'clamp(1.2rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')}
