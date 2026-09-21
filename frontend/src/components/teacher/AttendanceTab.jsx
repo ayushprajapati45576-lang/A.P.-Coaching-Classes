@@ -272,7 +272,12 @@ const AttendanceTab = () => {
 
     const processReport = () => {
         const studentStats = {};
+        const filteredStudents = getFilteredStudents();
+        const allowedStudentIds = new Set(filteredStudents.map(s => s.id));
+
         reportData.forEach(record => {
+            if (!allowedStudentIds.has(record.student_id)) return;
+
             if (!studentStats[record.student_id]) {
                 studentStats[record.student_id] = {
                     student_id: record.student_id,
@@ -286,6 +291,21 @@ const AttendanceTab = () => {
             studentStats[record.student_id][record.status]++;
             studentStats[record.student_id].total++;
         });
+        
+        // Also add students who have NO attendance records yet so they show up in the report
+        filteredStudents.forEach(student => {
+            if (!studentStats[student.id]) {
+                studentStats[student.id] = {
+                    student_id: student.id,
+                    name: student.full_name,
+                    present: 0,
+                    absent: 0,
+                    late: 0,
+                    total: 0
+                };
+            }
+        });
+
         return Object.values(studentStats).sort((a, b) => (a.name || '').trim().toLowerCase().localeCompare((b.name || '').trim().toLowerCase()));
     };
 
