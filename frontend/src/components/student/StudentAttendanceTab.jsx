@@ -38,32 +38,61 @@ const StudentAttendanceTab = () => {
             
             {loading ? <p>Loading...</p> : attendance.length === 0 ? <p>No attendance records found.</p> : (
                 <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Date</th>
-                                <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {attendance.map((a) => (
-                                <tr key={a.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                    <td style={{ padding: '0.75rem' }}>{new Date(a.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td>
-                                    <td style={{ padding: '0.75rem' }}>
-                                        <span style={{ 
-                                            padding: '4px 8px', 
-                                            borderRadius: '4px', 
-                                            fontSize: '0.8rem',
-                                            textTransform: 'uppercase',
-                                            ...getStatusStyle(a.status)
-                                        }}>
-                                            {a.status}
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    {(() => {
+                        const grouped = attendance.reduce((acc, curr) => {
+                            if (!acc[curr.date]) acc[curr.date] = { date: curr.date, Morning: null, Evening: null };
+                            const session = curr.session_type || 'Morning';
+                            acc[curr.date][session] = curr;
+                            return acc;
+                        }, {});
+                        const sortedDates = Object.keys(grouped).sort((a,b) => new Date(b) - new Date(a));
+
+                        const renderStatus = (record) => {
+                            if (!record) return <span style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>N/A</span>;
+                            return (
+                                <span style={{ 
+                                    padding: '4px 8px', 
+                                    borderRadius: '4px', 
+                                    fontSize: '0.8rem',
+                                    textTransform: 'uppercase',
+                                    ...getStatusStyle(record.status)
+                                }}>
+                                    {record.status}
+                                </span>
+                            );
+                        };
+
+                        return (
+                            <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Date</th>
+                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Morning</th>
+                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Evening</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {sortedDates.map((date) => {
+                                        const morning = grouped[date]['Morning'];
+                                        const evening = grouped[date]['Evening'];
+                                        return (
+                                            <tr key={date} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                                <td style={{ padding: '0.75rem', fontWeight: '500' }}>
+                                                    {new Date(date).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                                                </td>
+                                                <td style={{ padding: '0.75rem' }}>
+                                                    {renderStatus(morning)}
+                                                </td>
+                                                <td style={{ padding: '0.75rem' }}>
+                                                    {renderStatus(evening)}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        );
+                    })()}
                 </div>
             )}
         </div>

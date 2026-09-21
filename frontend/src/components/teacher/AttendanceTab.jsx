@@ -6,6 +6,7 @@ const AttendanceTab = () => {
     
     // Mark Attendance state
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [sessionType, setSessionType] = useState('Morning');
     const [students, setStudents] = useState([]);
     const [attendance, setAttendance] = useState({}); // student_id -> status ('present', 'absent', 'late')
     const [loading, setLoading] = useState(true);
@@ -24,6 +25,7 @@ const AttendanceTab = () => {
     const [studentHistory, setStudentHistory] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [historyMsg, setHistoryMsg] = useState({ type: '', message: '' });
+    const [editingHistoryCell, setEditingHistoryCell] = useState(null); // format: `${date}-${session}`
 
     useEffect(() => {
         if (viewMode === 'mark') {
@@ -31,7 +33,7 @@ const AttendanceTab = () => {
         } else if (viewMode === 'report' && !editingStudent) {
             fetchReportData();
         }
-    }, [date, viewMode, reportMonth]);
+    }, [date, sessionType, viewMode, reportMonth]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -45,7 +47,7 @@ const AttendanceTab = () => {
 
             setStudents(studentsData.sort((a, b) => (a.full_name || '').trim().toLowerCase().localeCompare((b.full_name || '').trim().toLowerCase())));
 
-            const attRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/attendance?date=${date}`, {
+            const attRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/attendance?date=${date}&session_type=${sessionType}`, {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const attData = await attRes.json();
@@ -122,10 +124,57 @@ const AttendanceTab = () => {
             if (res.ok) {
                 setStudentHistory(prev => prev.map(r => r.id === recordId ? { ...r, status: newStatus } : r));
                 setHistoryMsg({ type: 'success', message: 'Record updated successfully!' });
+                setEditingHistoryCell(null);
                 setTimeout(() => setHistoryMsg({ type: '', message: '' }), 3000);
             } else {
                 const data = await res.json();
                 throw new Error(data.error || 'Failed to update record');
+            }
+        } catch (err) {
+            setHistoryMsg({ type: 'error', message: err.message });
+        }
+    };
+
+    const handleAddHistoryRecord = async (studentId, date, sessionType, status) => {
+        try {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/attendance/single`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ student_id: studentId, date, session_type: sessionType, status })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setStudentHistory(prev => [data.record, ...prev]);
+                setHistoryMsg({ type: 'success', message: 'Record added successfully!' });
+                setEditingHistoryCell(null);
+                setTimeout(() => setHistoryMsg({ type: '', message: '' }), 3000);
+            } else {
+                throw new Error(data.error || 'Failed to add record');
+            }
+        } catch (err) {
+            setHistoryMsg({ type: 'error', message: err.message });
+        }
+    };
+
+    const handleDeleteHistoryRecord = async (recordId) => {
+        try {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/attendance/${recordId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            if (res.ok) {
+                setStudentHistory(prev => prev.filter(r => r.id !== recordId));
+                setHistoryMsg({ type: 'success', message: 'Record deleted successfully!' });
+                setEditingHistoryCell(null);
+                setTimeout(() => setHistoryMsg({ type: '', message: '' }), 3000);
+            } else {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to delete record');
             }
         } catch (err) {
             setHistoryMsg({ type: 'error', message: err.message });
@@ -155,7 +204,7 @@ const AttendanceTab = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 },
-                body: JSON.stringify({ date, records })
+                body: JSON.stringify({ date, session_type: sessionType, records })
             });
             const data = await res.json();
             if (res.ok) {
@@ -299,6 +348,15 @@ const AttendanceTab = () => {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 style={{ padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-surface-hover)', color: 'var(--color-text-main)', width: '250px' }}
                             />
+                            <select
+                                value={sessionType}
+                                onChange={(e) => setSessionType(e.target.value)}
+                                className={styles.fileInput}
+                                style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '8px', color: 'var(--color-text-main)', padding: '0.75rem 1rem', cursor: 'pointer' }}
+                            >
+                                <option value="Morning">Morning</option>
+                                <option value="Evening">Evening</option>
+                            </select>
                             <input
                                 type="date"
                                 value={date}
@@ -417,41 +475,90 @@ const AttendanceTab = () => {
                                 <p style={{ color: 'var(--color-text-muted)' }}>No attendance records found.</p>
                             ) : (
                                 <div style={{ overflowX: 'auto', marginBottom: '1.5rem' }}>
-                                    <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                                        <thead>
-                                            <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                                <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Date</th>
-                                                <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Status</th>
-                                                <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>Change To</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {studentHistory.map(record => (
-                                                <tr key={record.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                                    <td style={{ padding: '0.75rem' }}>{record.date}</td>
-                                                    <td style={{ 
-                                                        padding: '0.75rem', 
+                                    {(() => {
+                                        const grouped = studentHistory.reduce((acc, curr) => {
+                                            if (!acc[curr.date]) acc[curr.date] = { date: curr.date, Morning: null, Evening: null };
+                                            const session = curr.session_type || 'Morning';
+                                            acc[curr.date][session] = curr;
+                                            return acc;
+                                        }, {});
+                                        const sortedDates = Object.keys(grouped).sort((a,b) => new Date(b) - new Date(a));
+
+                                        const renderCell = (date, session, record) => {
+                                            const cellId = `${date}-${session}`;
+                                            const isEditing = editingHistoryCell === cellId;
+
+                                            if (!record) {
+                                                return (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem' }}>
+                                                        <span style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>N/A</span>
+                                                        {isEditing ? (
+                                                            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                                                                <button onClick={() => handleAddHistoryRecord(editingStudent.id, date, session, 'present')} style={{ padding: '0.2rem 0.4rem', background: '#4caf5022', color: '#4caf50', border: '1px solid #4caf50', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>P</button>
+                                                                <button onClick={() => handleAddHistoryRecord(editingStudent.id, date, session, 'absent')} style={{ padding: '0.2rem 0.4rem', background: '#f4433622', color: '#f44336', border: '1px solid #f44336', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>A</button>
+                                                                <button onClick={() => handleAddHistoryRecord(editingStudent.id, date, session, 'late')} style={{ padding: '0.2rem 0.4rem', background: '#ff980022', color: '#ff9800', border: '1px solid #ff9800', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>L</button>
+                                                                <button onClick={() => setEditingHistoryCell(null)} style={{ padding: '0.2rem 0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.75rem' }}>✕</button>
+                                                            </div>
+                                                        ) : (
+                                                            <button onClick={() => setEditingHistoryCell(cellId)} style={{ padding: '0.2rem 0.5rem', background: 'var(--color-surface)', border: '1px dashed var(--color-border)', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--color-primary)' }}>➕ Add</button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem' }}>
+                                                    <span style={{ 
                                                         color: record.status === 'present' ? '#4caf50' : record.status === 'absent' ? '#f44336' : '#ff9800',
                                                         textTransform: 'capitalize',
                                                         fontWeight: 'bold'
                                                     }}>
                                                         {record.status}
-                                                    </td>
-                                                    <td style={{ padding: '0.75rem', textAlign: 'center', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                                                        {record.status !== 'present' && (
-                                                            <button onClick={() => handleUpdateHistoryRecord(record.id, 'present')} style={{ padding: '0.3rem 0.6rem', background: '#4caf5022', color: '#4caf50', border: '1px solid #4caf50', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>Present</button>
-                                                        )}
-                                                        {record.status !== 'absent' && (
-                                                            <button onClick={() => handleUpdateHistoryRecord(record.id, 'absent')} style={{ padding: '0.3rem 0.6rem', background: '#f4433622', color: '#f44336', border: '1px solid #f44336', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>Absent</button>
-                                                        )}
-                                                        {record.status !== 'late' && (
-                                                            <button onClick={() => handleUpdateHistoryRecord(record.id, 'late')} style={{ padding: '0.3rem 0.6rem', background: '#ff980022', color: '#ff9800', border: '1px solid #ff9800', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>Late</button>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                                    </span>
+                                                    {isEditing ? (
+                                                        <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                                            {record.status !== 'present' && <button onClick={() => handleUpdateHistoryRecord(record.id, 'present')} style={{ padding: '0.2rem 0.4rem', background: '#4caf5022', color: '#4caf50', border: '1px solid #4caf50', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>P</button>}
+                                                            {record.status !== 'absent' && <button onClick={() => handleUpdateHistoryRecord(record.id, 'absent')} style={{ padding: '0.2rem 0.4rem', background: '#f4433622', color: '#f44336', border: '1px solid #f44336', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>A</button>}
+                                                            {record.status !== 'late' && <button onClick={() => handleUpdateHistoryRecord(record.id, 'late')} style={{ padding: '0.2rem 0.4rem', background: '#ff980022', color: '#ff9800', border: '1px solid #ff9800', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>L</button>}
+                                                            <button onClick={() => handleDeleteHistoryRecord(record.id)} title="Delete record" style={{ padding: '0.2rem 0.4rem', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', marginLeft: '0.2rem' }}>🗑️</button>
+                                                            <button onClick={() => setEditingHistoryCell(null)} style={{ padding: '0.2rem 0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.75rem' }}>✕</button>
+                                                        </div>
+                                                    ) : (
+                                                        <button onClick={() => setEditingHistoryCell(cellId)} style={{ padding: '0.2rem 0.5rem', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--color-text-main)' }}>✏️ Edit</button>
+                                                    )}
+                                                </div>
+                                            );
+                                        };
+
+                                        return (
+                                            <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+                                                <thead>
+                                                    <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Date</th>
+                                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Morning</th>
+                                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Evening</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {sortedDates.map(date => {
+                                                        const morning = grouped[date]['Morning'];
+                                                        const evening = grouped[date]['Evening'];
+                                                        return (
+                                                            <tr key={date} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                                                <td style={{ padding: '0.75rem', fontWeight: '500' }}>{date}</td>
+                                                                <td style={{ padding: '0.75rem', verticalAlign: 'top' }}>
+                                                                    {renderCell(date, 'Morning', morning)}
+                                                                </td>
+                                                                <td style={{ padding: '0.75rem', verticalAlign: 'top' }}>
+                                                                    {renderCell(date, 'Evening', evening)}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        );
+                                    })()}
                                 </div>
                             )}
                         </>

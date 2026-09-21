@@ -419,37 +419,71 @@ app.delete('/api/notices/:id', authenticateToken, requireRole('teacher'), async 
 
 // --- Attendance ---
 app.post('/api/attendance', authenticateToken, requireRole('teacher'), async (req, res) => {
-    const { date, records } = req.body;
+    console.log("POST /api/attendance RECEIVED:", req.body);
+    const { date, session_type, records } = req.body;
     if (!date || !records || !Array.isArray(records)) return res.status(400).json({ error: "Invalid data" });
+    const sessionType = session_type || 'Morning';
 
     try {
-        await supabase.from('attendance').delete().eq('date', date);
+        const { error: deleteError } = await supabase.from('attendance').delete().eq('date', date).eq('session_type', sessionType);
+        if (deleteError) throw deleteError;
         
         const inserts = records.map(r => ({
             id: crypto.randomUUID(),
             student_id: r.student_id,
             date,
+            session_type: sessionType,
             status: r.status,
             marked_by: req.user.id
         }));
         
-        await supabase.from('attendance').insert(inserts);
+        const { error: insertError } = await supabase.from('attendance').insert(inserts);
+        if (insertError) throw insertError;
+        
         res.status(201).json({ message: "Attendance saved successfully" });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({ error: err.message || "Internal server error" });
+    }
+});
+
+app.post('/api/attendance/single', authenticateToken, requireRole('teacher'), async (req, res) => {
+    const { student_id, date, session_type, status } = req.body;
+    if (!student_id || !date || !status) return res.status(400).json({ error: "Missing required fields" });
+    const sessionType = session_type || 'Morning';
+
+    try {
+        const insertData = {
+            id: crypto.randomUUID(),
+            student_id,
+            date,
+            session_type: sessionType,
+            status,
+            marked_by: req.user.id
+        };
+        
+        const { data, error } = await supabase.from('attendance').insert([insertData]).select();
+        if (error) throw error;
+        
+        res.status(201).json({ message: "Attendance record added", record: data[0] });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
 app.get('/api/attendance', authenticateToken, requireRole('teacher'), async (req, res) => {
-    const { date } = req.query;
+    const { date, session_type } = req.query;
     if (!date) return res.status(400).json({ error: "Date is required" });
+    const sessionType = session_type || 'Morning';
 
     try {
-        const { data } = await supabase.from('attendance').select('*').eq('date', date);
+        const { data, error } = await supabase.from('attendance').select('*').eq('date', date).eq('session_type', sessionType);
+        if (error) throw error;
         res.json(data || []);
     } catch (err) {
-        res.status(500).json({ error: "Internal server error" });
+        console.error(err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
@@ -491,6 +525,15 @@ app.put('/api/attendance/:id', authenticateToken, requireRole('teacher'), async 
     try {
         await supabase.from('attendance').update({ status }).eq('id', req.params.id);
         res.json({ message: "Attendance updated" });
+    } catch (err) {
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+app.delete('/api/attendance/:id', authenticateToken, requireRole('teacher'), async (req, res) => {
+    try {
+        await supabase.from('attendance').delete().eq('id', req.params.id);
+        res.json({ message: "Attendance deleted" });
     } catch (err) {
         res.status(500).json({ error: "Internal server error" });
     }
