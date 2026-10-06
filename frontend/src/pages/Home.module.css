@@ -7,11 +7,8 @@
   background-size: 60px 60px;
   color: var(--color-text-main);
   position: relative;
-  overflow: hidden;
+  overflow-x: clip;
   font-family: var(--font-family-main);
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  transform: translateZ(0);
 }
 
 /* Ambient glowing orbs */
