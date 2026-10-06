@@ -35,8 +35,8 @@ const Home = () => {
         </div>
         <div className={styles.navLinks}>
           <a href="#home">Home</a>
-          <a href="#features">Features</a>
           <a href="#stats">Impact</a>
+          <a href="#features">Features</a>
         </div>
         <button className={styles.loginBtn} onClick={() => navigate('/login')}>
           Login to Portal
@@ -60,7 +60,7 @@ const Home = () => {
             </motion.div>
             <motion.h1 variants={itemVariants} className={styles.heroTitle}>
               Excellence in Education<br />with A.P. Coaching Classes
-     
+
             </motion.h1>
             <motion.p variants={itemVariants} className={styles.heroSubtitle}>
               Expert guidance for <strong>Class 6th to 10th (All Subjects)</strong> and Specialized <strong>Mathematics Coaching for Class 11th & 12th</strong>. We focus on conceptual clarity and board exam excellence.

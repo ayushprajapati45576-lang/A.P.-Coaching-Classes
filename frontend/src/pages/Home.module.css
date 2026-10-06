@@ -7,7 +7,7 @@
   background-size: 60px 60px;
   color: var(--color-text-main);
   position: relative;
-  overflow-x: clip;
+  overflow: clip;
   font-family: var(--font-family-main);
 }
 
