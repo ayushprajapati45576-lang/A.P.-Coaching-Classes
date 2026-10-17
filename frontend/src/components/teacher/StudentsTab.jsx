@@ -122,6 +122,20 @@ const StudentsTab = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        const cleanEmail = formData.email ? formData.email.trim().toLowerCase() : '';
+        const duplicateStudent = cleanEmail 
+            ? students.find(s => s.users?.email?.trim().toLowerCase() === cleanEmail && s.id !== editingId) 
+            : null;
+
+        if (duplicateStudent) {
+            setStatus({ 
+                type: 'error', 
+                message: `⚠️ Warning: This email is already registered with student "${duplicateStudent.full_name}" (${duplicateStudent.class_name ? `Class ${duplicateStudent.class_name}` : 'General'}). Please use a different email.` 
+            });
+            return;
+        }
+
         setStatus({ type: 'loading', message: editingId ? 'Updating student...' : 'Creating student...' });
         try {
             const url = editingId 
@@ -130,7 +144,7 @@ const StudentsTab = () => {
             const method = editingId ? 'PUT' : 'POST';
 
             // For editing, only send password if it's provided
-            const payload = { ...formData };
+            const payload = { ...formData, email: cleanEmail };
             if (editingId && !payload.password) {
                 delete payload.password;
             }
@@ -147,9 +161,13 @@ const StudentsTab = () => {
             const data = await res.json();
             if (res.ok) {
                 setStatus({ type: 'success', message: editingId ? 'Student updated successfully!' : 'Student created successfully!' });
-                setFormData({ email: '', password: '', fullName: '', phone: '', class_name: '10' });
+                setFormData({ email: '', password: '', fullName: '', fatherName: '', phone: '', class_name: '10' });
                 setEditingId(null);
-                setTimeout(() => setView('list'), 1500); // Go back to list
+                await fetchStudents();
+                setTimeout(() => {
+                    setView('list');
+                    setStatus({ type: '', message: '' });
+                }, 1500); // Go back to list
             } else {
                 setStatus({ type: 'error', message: data.error || (editingId ? 'Failed to update student' : 'Failed to create student') });
             }
@@ -250,7 +268,7 @@ const StudentsTab = () => {
                             </button>
                         )}
                         <button onClick={() => {
-                            setFormData({ email: '', password: '', fullName: '', phone: '', class_name: '10' });
+                            setFormData({ email: '', password: '', fullName: '', fatherName: '', phone: '', class_name: '10' });
                             setEditingId(null);
                             setStatus({ type: '', message: '' });
                             setView('add');
@@ -390,11 +408,16 @@ const StudentsTab = () => {
         );
     }
 
+    const cleanInputEmail = formData.email ? formData.email.trim().toLowerCase() : '';
+    const duplicateStudent = cleanInputEmail
+        ? students.find(s => s.users?.email?.trim().toLowerCase() === cleanInputEmail && s.id !== editingId)
+        : null;
+
     return (
         <div className={`glass-panel ${styles.tabContainer} animate-fade-in`}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <h2 style={{ margin: 0 }}>{editingId ? 'Edit Student' : 'Add New Student'}</h2>
-                <button onClick={() => setView('list')} className={styles.logoutBtn} style={{ background: 'transparent', color: 'var(--color-text-muted)', border: 'none' }}>Cancel</button>
+                <button onClick={() => { setView('list'); setStatus({ type: '', message: '' }); }} className={styles.logoutBtn} style={{ background: 'transparent', color: 'var(--color-text-muted)', border: 'none' }}>Cancel</button>
             </div>
 
             <form onSubmit={handleSubmit} className={styles.form}>
@@ -412,7 +435,6 @@ const StudentsTab = () => {
                         <option value="6">Class 6</option>
                         <option value="7">Class 7</option>
                         <option value="8">Class 8</option>
-
                         <option value="9">Class 9</option>
                         <option value="10">Class 10</option>
                         <option value="11">Class 11</option>
@@ -422,7 +444,36 @@ const StudentsTab = () => {
                 </div>
                 <div className={styles.inputGroup}>
                     <label>Email</label>
-                    <input required type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                    <input 
+                        required 
+                        type="email" 
+                        value={formData.email} 
+                        onChange={e => {
+                            setFormData({ ...formData, email: e.target.value });
+                            if (status.type === 'error') setStatus({ type: '', message: '' });
+                        }} 
+                        style={duplicateStudent ? { borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' } : {}}
+                    />
+                    {duplicateStudent && (
+                        <div style={{
+                            marginTop: '0.4rem',
+                            padding: '0.6rem 0.8rem',
+                            backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                            border: '1px solid rgba(239, 68, 68, 0.4)',
+                            borderRadius: '6px',
+                            color: '#ef4444',
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            fontWeight: '500'
+                        }}>
+                            <span>⚠️</span>
+                            <span>
+                                <strong>Email Already Exists:</strong> This email is already registered with student "{duplicateStudent.full_name}" ({duplicateStudent.class_name ? `Class ${duplicateStudent.class_name}` : 'General'}).
+                            </span>
+                        </div>
+                    )}
                 </div>
                 <div className={styles.inputGroup}>
                     <label>Password {editingId && <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>(leave blank to keep current)</span>}</label>
@@ -439,8 +490,15 @@ const StudentsTab = () => {
                     </div>
                 )}
 
-                <button type="submit" disabled={status.type === 'loading'} className={styles.submitBtn}>
-                    {editingId ? 'Update Student' : 'Create Student Account'}
+                <button 
+                    type="submit" 
+                    disabled={status.type === 'loading' || Boolean(duplicateStudent)} 
+                    className={styles.submitBtn}
+                    style={duplicateStudent ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+                >
+                    {status.type === 'loading' 
+                        ? (editingId ? 'Updating Student...' : 'Creating Student...') 
+                        : (editingId ? 'Update Student' : 'Create Student Account')}
                 </button>
             </form>
         </div>

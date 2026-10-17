@@ -34,6 +34,7 @@ const Register = () => {
     
     try {
         const { confirmPassword, ...registerData } = formData;
+        registerData.email = registerData.email ? registerData.email.trim().toLowerCase() : '';
         const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

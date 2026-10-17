@@ -108,17 +108,33 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/register', async (req, res) => {
     const { email, password, fullName, fatherName, phone, class_name } = req.body;
     try {
-        const { data: existing } = await supabase.from('users').select('*').eq('email', email).maybeSingle();
-        if (existing) return res.status(400).json({ error: "Email already registered" });
+        if (!email || !email.trim()) {
+            return res.status(400).json({ error: "Email is required" });
+        }
+        if (!password) {
+            return res.status(400).json({ error: "Password is required" });
+        }
+
+        const cleanEmail = email.trim().toLowerCase();
+        const { data: existing, error: checkErr } = await supabase.from('users').select('id').ilike('email', cleanEmail).maybeSingle();
+        if (checkErr) throw checkErr;
+        if (existing) {
+            return res.status(400).json({ error: "Email already registered. Please login or use a different email." });
+        }
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const userId = crypto.randomUUID();
         
         const { error: insertUserErr } = await supabase.from('users').insert({ 
-            id: userId, email, password_hash: hashedPassword, 
+            id: userId, email: cleanEmail, password_hash: hashedPassword, 
             role: 'student', is_approved: false 
         });
-        if (insertUserErr) throw insertUserErr;
+        if (insertUserErr) {
+            if (insertUserErr.code === '23505' || (insertUserErr.message && insertUserErr.message.toLowerCase().includes('unique'))) {
+                return res.status(400).json({ error: "Email already registered. Please login or use a different email." });
+            }
+            throw insertUserErr;
+        }
         
         const { error: insertStudentErr } = await supabase.from('students').insert({ 
             id: userId, full_name: fullName, father_name: fatherName, 
@@ -129,7 +145,7 @@ app.post('/api/auth/register', async (req, res) => {
         res.status(201).json({ message: "Registration successful, pending teacher approval" });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
@@ -137,23 +153,54 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/students', authenticateToken, requireRole('teacher'), async (req, res) => {
     const { email, password, fullName, fatherName, phone, class_name } = req.body;
     try {
+        if (!email || !email.trim()) {
+            return res.status(400).json({ error: "Email is required" });
+        }
+        if (!password) {
+            return res.status(400).json({ error: "Password is required" });
+        }
+
+        const cleanEmail = email.trim().toLowerCase();
+
+        // 1. Check if email already exists in users table
+        const { data: existingUser, error: checkErr } = await supabase
+            .from('users')
+            .select('id, email, role')
+            .ilike('email', cleanEmail)
+            .maybeSingle();
+
+        if (checkErr) throw checkErr;
+        if (existingUser) {
+            return res.status(400).json({ error: "Email already registered! This email already exists in the system." });
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
         const userId = crypto.randomUUID();
         
-        await supabase.from('users').insert({ 
-            id: userId, email, password_hash: hashedPassword, 
+        const { error: insertUserErr } = await supabase.from('users').insert({ 
+            id: userId, email: cleanEmail, password_hash: hashedPassword, 
             role: 'student', is_approved: true 
         });
-        await supabase.from('students').insert({ 
+        if (insertUserErr) {
+            if (insertUserErr.code === '23505' || (insertUserErr.message && insertUserErr.message.toLowerCase().includes('unique'))) {
+                return res.status(400).json({ error: "Email already registered! This email already exists in the system." });
+            }
+            throw insertUserErr;
+        }
+
+        const { error: insertStudentErr } = await supabase.from('students').insert({ 
             id: userId, full_name: fullName, father_name: fatherName, 
             phone, class_name: class_name || 'General' 
         });
+        if (insertStudentErr) throw insertStudentErr;
 
-        const { data: studentData } = await supabase.from('students').select('*').eq('id', userId).maybeSingle();
+        const { data: studentData, error: fetchErr } = await supabase.from('students').select('*').eq('id', userId).maybeSingle();
+        if (fetchErr) throw fetchErr;
+
         res.status(201).json({ message: "Student created successfully", student: studentData });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
@@ -191,10 +238,33 @@ app.delete('/api/students/:id', authenticateToken, requireRole('teacher'), async
 app.put('/api/students/:id', authenticateToken, requireRole('teacher'), async (req, res) => {
     const { email, password, fullName, fatherName, phone, class_name } = req.body;
     try {
-        if (email) await supabase.from('users').update({ email }).eq('id', req.params.id);
+        if (email) {
+            const cleanEmail = email.trim().toLowerCase();
+            // Check if another user has this email
+            const { data: existingUser, error: checkErr } = await supabase
+                .from('users')
+                .select('id')
+                .ilike('email', cleanEmail)
+                .neq('id', req.params.id)
+                .maybeSingle();
+
+            if (checkErr) throw checkErr;
+            if (existingUser) {
+                return res.status(400).json({ error: "Email already registered! Another user is already using this email." });
+            }
+
+            const { error: emailErr } = await supabase.from('users').update({ email: cleanEmail }).eq('id', req.params.id);
+            if (emailErr) {
+                if (emailErr.code === '23505' || (emailErr.message && emailErr.message.toLowerCase().includes('unique'))) {
+                    return res.status(400).json({ error: "Email already registered! Another user is already using this email." });
+                }
+                throw emailErr;
+            }
+        }
         if (password) {
             const hash = await bcrypt.hash(password, 10);
-            await supabase.from('users').update({ password_hash: hash }).eq('id', req.params.id);
+            const { error: passErr } = await supabase.from('users').update({ password_hash: hash }).eq('id', req.params.id);
+            if (passErr) throw passErr;
         }
         
         let studentUpdate = {};
@@ -204,12 +274,14 @@ app.put('/api/students/:id', authenticateToken, requireRole('teacher'), async (r
         if (class_name) studentUpdate.class_name = class_name;
         
         if (Object.keys(studentUpdate).length > 0) {
-            await supabase.from('students').update(studentUpdate).eq('id', req.params.id);
+            const { error: studentErr } = await supabase.from('students').update(studentUpdate).eq('id', req.params.id);
+            if (studentErr) throw studentErr;
         }
         
         res.json({ message: "Student updated successfully" });
     } catch (err) {
-        res.status(500).json({ error: "Internal server error" });
+        console.error(err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
