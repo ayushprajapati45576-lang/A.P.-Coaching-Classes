@@ -35,10 +35,10 @@ const StudentOverviewTab = ({ setActiveTab }) => {
 
                 // Fetch Fees
                 const feesRes = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/student/fees', { headers });
-                if (feesRes.ok) {
+                if (feesRes.ok && feesRes.headers.get('content-type')?.includes('application/json')) {
                     const feesData = await feesRes.json();
                     const pending = feesData.filter(f => f.status === 'pending' || f.status === 'overdue');
-                    const totalPending = pending.reduce((acc, curr) => acc + Number(curr.amount), 0);
+                    const totalPending = pending.reduce((acc, curr) => { const due = (curr.due_amount !== undefined && curr.due_amount !== null) ? Number(curr.due_amount) : Number(curr.amount); return acc + (isNaN(due) ? 0 : due); }, 0);
                     setFees({ pendingAmount: totalPending });
                 }
 

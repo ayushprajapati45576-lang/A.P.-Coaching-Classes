@@ -26,7 +26,10 @@ CREATE TABLE students (
     father_name VARCHAR(255),
     phone VARCHAR(20),
     class_name VARCHAR(50) DEFAULT 'General',
-    enrollment_date DATE DEFAULT CURRENT_DATE
+    enrollment_date DATE DEFAULT CURRENT_DATE,
+    total_fees NUMERIC(10,2) NULL,
+    fees_start_date DATE NULL,
+    fees_due_date DATE NULL
 );
 
 -- 3. Notes Table
@@ -82,16 +85,28 @@ CREATE TABLE results (
     created_by UUID REFERENCES users(id)
 );
 
--- 8. Fees Table
+-- 8. Fees Table (Historical / Legacy)
 CREATE TABLE fees (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     student_id UUID REFERENCES students(id) ON DELETE CASCADE,
     amount NUMERIC NOT NULL,
+    paid_amount NUMERIC DEFAULT 0,
+    due_amount NUMERIC DEFAULT 0,
     due_date DATE,
     paid_date DATE,
     status VARCHAR(20) CHECK (status IN ('pending', 'paid', 'overdue')),
     recorded_by UUID REFERENCES users(id)
 );
+
+-- 8b. Payments Table (Active Payment Records)
+CREATE TABLE payments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    amount NUMERIC(10,2) NOT NULL CHECK (amount > 0),
+    payment_date DATE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_payments_student_id ON payments(student_id);
 
 -- 9. Quizzes Table
 CREATE TABLE quizzes (

@@ -1,226 +1,1036 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import styles from './Tabs.module.css';
 
-const FeesTab = () => {
-    const [view, setView] = useState('list');
+// Safe fetch helper to completely prevent SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+const safeFetchJson = async (url, options = {}) => {
+    try {
+        const res = await fetch(url, options);
+        const contentType = res.headers.get('content-type') || '';
+        let data = null;
+        if (contentType.includes('application/json')) {
+            try {
+                data = await res.json();
+            } catch (e) {
+                console.error('Failed to parse JSON:', e);
+            }
+        } else {
+            const text = await res.text();
+            console.warn(`Non-JSON response from ${url} (status ${res.status}):`, text.slice(0, 120));
+        }
+        return { ok: res.ok, status: res.status, data };
+    } catch (err) {
+        console.error(`Network error requesting ${url}:`, err);
+        return { ok: false, status: 0, error: err.message, data: null };
+    }
+};
 
-    // List State
-    const [fees, setFees] = useState([]);
+// Smart backend URL: auto-detects localhost to prevent calling old production Vercel
+const getBackendUrl = () => {
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        return 'http://localhost:5000';
+    }
+    return import.meta.env.VITE_BACKEND_URL || '';
+};
+
+const FeesTab = () => {
+    const [selectedClass, setSelectedClass] = useState('10'); // Default Class 10
     const [students, setStudents] = useState([]);
+    const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Form State
-    const [formData, setFormData] = useState({ student_id: '', amount: '', status: 'pending', due_date: '', paid_date: '' });
-    const [statusMsg, setStatusMsg] = useState({ type: '', message: '' });
-    const [editId, setEditId] = useState(null);
+    // Track expanded records per student
+    const [expandedStudentIds, setExpandedStudentIds] = useState({});
+
+    // Active inline form: null | { type: 'set_fees' | 'edit_fees' | 'add_payment' | 'edit_payment', studentId, payment? }
+    const [activeForm, setActiveForm] = useState(null);
+    const [formState, setFormState] = useState({});
+    const [formError, setFormError] = useState('');
+    const [formLoading, setFormLoading] = useState(false);
 
     useEffect(() => {
-        if (view === 'list') {
-            fetchFees();
-        } else if (view === 'add' && students.length === 0) {
-            fetchStudents();
-        }
-    }, [view]);
+        fetchData();
+    }, []);
 
-    const fetchFees = async () => {
+    const fetchData = async () => {
         setLoading(true);
         try {
-            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/fees', {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            });
-            const data = await res.json();
-            if (res.ok) setFees(data);
-        } catch (err) {
-            console.error(err);
+            await Promise.all([fetchStudents(), fetchPayments()]);
         } finally {
             setLoading(false);
         }
     };
 
     const fetchStudents = async () => {
-        try {
-            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/students', {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            });
-            const data = await res.json();
-            if (res.ok) {
-                const sortedData = data.sort((a, b) => (a.full_name || '').trim().toLowerCase().localeCompare((b.full_name || '').trim().toLowerCase()));
-                setStudents(sortedData);
-                if (sortedData.length > 0) setFormData(prev => ({ ...prev, student_id: sortedData[0].id }));
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
-    const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this?')) return;
-        if (!window.confirm("Delete this fee record?")) return;
-        try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/fees/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            });
-            if (res.ok) {
-                setFees(fees.filter(f => f.id !== id));
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
-    const handleEdit = (fee) => {
-        setEditId(fee.id);
-        setFormData({
-            student_id: fee.student_id,
-            amount: fee.amount,
-            status: fee.status,
-            due_date: fee.due_date ? new Date(fee.due_date).toISOString().split('T')[0] : '',
-            paid_date: fee.paid_date ? new Date(fee.paid_date).toISOString().split('T')[0] : ''
+        const { ok, data } = await safeFetchJson(getBackendUrl() + '/api/students', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
-        setView('add');
+        if (ok && Array.isArray(data)) {
+            const sorted = data.sort((a, b) => 
+                (a.full_name || '').trim().toLowerCase().localeCompare((b.full_name || '').trim().toLowerCase())
+            );
+            setStudents(sorted);
+        }
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setStatusMsg({ type: 'loading', message: 'Saving fee record...' });
+    const fetchPayments = async () => {
+        const { ok, data } = await safeFetchJson(getBackendUrl() + '/api/payments', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (ok && Array.isArray(data)) {
+            setPayments(data);
+        } else {
+            // If payments endpoint not yet deployed or available, default to empty list
+            setPayments([]);
+        }
+    };
 
-        // formatting date string handling if paid_date is empty
-        const submissionData = { ...formData };
-        if (submissionData.status === 'pending') {
-            submissionData.paid_date = null;
+    // Helper: Local Today's Date String YYYY-MM-DD
+    const getTodayString = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    // Helper: Format Money in Indian Style (₹1,00,000)
+    const formatCurrency = (val) => {
+        const num = Number(val) || 0;
+        return '₹' + num.toLocaleString('en-IN');
+    };
+
+    // Helper: Format Date (e.g. "5 Oct 2026")
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '-';
+        const datePart = String(dateStr).slice(0, 10);
+        const parts = datePart.split('-');
+        if (parts.length === 3) {
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const day = parseInt(parts[2], 10);
+            const d = new Date(year, month, day);
+            if (!isNaN(d.getTime())) {
+                return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            }
+        }
+        return datePart;
+    };
+
+    // Group payments by student_id
+    const studentPaymentsMap = useMemo(() => {
+        const map = {};
+        payments.forEach(p => {
+            const sid = p.student_id;
+            if (!map[sid]) map[sid] = [];
+            map[sid].push(p);
+        });
+        return map;
+    }, [payments]);
+
+    // Filter students belonging to the selected class
+    const classStudents = useMemo(() => {
+        return students
+            .filter(s => String(s.class_name || s.class || '').trim() === String(selectedClass))
+            .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    }, [students, selectedClass]);
+
+    // Total remaining for the selected class (students who have fees set)
+    const classTotalRemaining = useMemo(() => {
+        return classStudents.reduce((acc, s) => {
+            const total = Number(s.total_fees) || 0;
+            if (total <= 0) return acc;
+            const sPayments = studentPaymentsMap[s.id] || [];
+            const paid = sPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+            const remaining = Math.max(0, total - paid);
+            return acc + remaining;
+        }, 0);
+    }, [classStudents, studentPaymentsMap]);
+
+    // Toggle view records
+    const toggleRecords = (studentId) => {
+        setExpandedStudentIds(prev => ({
+            ...prev,
+            [studentId]: !prev[studentId]
+        }));
+    };
+
+    // -------------------------------------------------------------------------
+    // FORM TRIGGERS
+    // -------------------------------------------------------------------------
+
+    // Open "Set fees" or "Edit total" form
+    const handleOpenFeesForm = (student) => {
+        const isFirstTime = !student.total_fees || Number(student.total_fees) <= 0;
+        setFormError('');
+        setFormState({
+            total_fees: student.total_fees ? String(student.total_fees) : '',
+            fees_start_date: student.fees_start_date ? String(student.fees_start_date).slice(0, 10) : getTodayString(),
+            fees_due_date: student.fees_due_date ? String(student.fees_due_date).slice(0, 10) : '',
+            paid_now: '',
+            paid_date: getTodayString()
+        });
+        setActiveForm({
+            type: isFirstTime ? 'set_fees' : 'edit_fees',
+            studentId: student.id
+        });
+    };
+
+    // Open "+ Add payment" form
+    const handleOpenAddPayment = (student) => {
+        setFormError('');
+        setFormState({
+            amount: '',
+            payment_date: getTodayString(),
+            fees_due_date: student.fees_due_date ? String(student.fees_due_date).slice(0, 10) : ''
+        });
+        setActiveForm({
+            type: 'add_payment',
+            studentId: student.id
+        });
+    };
+
+    // Open "Edit payment" form
+    const handleOpenEditPayment = (student, payment) => {
+        setFormError('');
+        setFormState({
+            amount: String(payment.amount),
+            payment_date: payment.payment_date ? String(payment.payment_date).slice(0, 10) : getTodayString(),
+            fees_due_date: student.fees_due_date ? String(student.fees_due_date).slice(0, 10) : ''
+        });
+        setActiveForm({
+            type: 'edit_payment',
+            studentId: student.id,
+            payment
+        });
+    };
+
+    const handleCancelForm = () => {
+        setActiveForm(null);
+        setFormState({});
+        setFormError('');
+    };
+
+    // -------------------------------------------------------------------------
+    // FORM SUBMISSIONS
+    // -------------------------------------------------------------------------
+
+    // Submit Set Fees / Edit Total
+    const handleSaveFees = async (e, student, alreadyPaid) => {
+        e.preventDefault();
+        setFormError('');
+
+        const isFirstTime = activeForm.type === 'set_fees';
+        const numTotal = Number(formState.total_fees);
+
+        if (!numTotal || numTotal <= 0) {
+            setFormError('Total fees must be greater than 0');
+            return;
+        }
+        if (!formState.fees_start_date) {
+            setFormError('Fees start date is required');
+            return;
         }
 
-        try {
-            const url = editId ? `/api/fees/${editId}` : '/api/fees';
-            const method = editId ? 'PUT' : 'POST';
+        const paidNow = isFirstTime && Number(formState.paid_now) > 0 ? Number(formState.paid_now) : 0;
+        if (isFirstTime && paidNow > numTotal) {
+            setFormError('Paid amount cannot be more than total fees');
+            return;
+        }
+        if (isFirstTime && paidNow > 0 && !formState.paid_date) {
+            setFormError('Paid date is required when initial payment is entered');
+            return;
+        }
 
-            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + url, {
-                method: method,
+        const effectivePaid = alreadyPaid + paidNow;
+        if (numTotal < effectivePaid) {
+            setFormError(`Total fees cannot be less than already paid (${formatCurrency(effectivePaid)})`);
+            return;
+        }
+
+        const remaining = numTotal - effectivePaid;
+        if (remaining > 0 && !formState.fees_due_date) {
+            setFormError('Due date is required for remaining fees');
+            return;
+        }
+
+        setFormLoading(true);
+        try {
+            const body = {
+                total_fees: numTotal,
+                fees_start_date: formState.fees_start_date.slice(0, 10),
+                fees_due_date: remaining > 0 ? formState.fees_due_date.slice(0, 10) : null
+            };
+
+            if (isFirstTime && paidNow > 0) {
+                body.initial_payment = {
+                    amount: paidNow,
+                    payment_date: formState.paid_date.slice(0, 10)
+                };
+            }
+
+            const { ok, status, data, error } = await safeFetchJson(`${getBackendUrl()}/api/students/${student.id}/fees`, {
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 },
-                body: JSON.stringify(submissionData)
+                body: JSON.stringify(body)
             });
 
-            const data = await res.json();
-            if (res.ok) {
-                setStatusMsg({ type: 'success', message: editId ? 'Fee record updated successfully!' : 'Fee record saved successfully!' });
-                setFormData({ student_id: students[0]?.id || '', amount: '', status: 'pending', due_date: '', paid_date: '' });
-                setEditId(null);
-                setTimeout(() => setView('list'), 1500);
+            if (ok) {
+                await Promise.all([fetchStudents(), fetchPayments()]);
+                setActiveForm(null);
+                setExpandedStudentIds(prev => ({ ...prev, [student.id]: true }));
             } else {
-                setStatusMsg({ type: 'error', message: data.error || 'Failed to save fee record' });
+                setFormError(data?.error || error || (status === 404 ? 'Backend route not found (404). Please ensure the backend is running and up-to-date.' : 'Failed to update fees'));
             }
         } catch (err) {
-            setStatusMsg({ type: 'error', message: err.message });
+            setFormError(err.message || 'Network error');
+        } finally {
+            setFormLoading(false);
         }
     };
 
-    if (view === 'list') {
-        return (
-            <div className={`glass-panel animate-fade-in`} style={{ padding: '1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-                    <h2 style={{ color: 'var(--color-primary)', margin: 0 }}>Manage Fees</h2>
-                    <button onClick={() => { setEditId(null); setFormData({ student_id: students[0]?.id || '', amount: '', status: 'pending', due_date: '', paid_date: '' }); setView('add'); }} className={styles.submitBtn} style={{ margin: 0 }}>
-                        + Add Fee Record
-                    </button>
-                </div>
+    // Submit Add or Edit Payment
+    const handleSavePayment = async (e, student, allowedMax) => {
+        e.preventDefault();
+        setFormError('');
 
-                {loading ? <p>Loading...</p> : fees.length === 0 ? <p>No fee records found.</p> : (
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Student</th>
-                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Amount</th>
-                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Status</th>
-                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Due Date</th>
-                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {fees.map((f) => (
-                                    <tr key={f.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                        <td style={{ padding: '0.75rem' }}>{f.students?.full_name}</td>
-                                        <td style={{ padding: '0.75rem' }}>₹{f.amount}</td>
-                                        <td style={{ padding: '0.75rem' }}>
-                                            <span style={{
-                                                padding: '4px 8px',
-                                                borderRadius: '4px',
-                                                fontSize: '0.8rem',
-                                                background: f.status === 'paid' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                                                color: f.status === 'paid' ? '#10b981' : 'var(--color-danger)'
-                                            }}>
-                                                {f.status.toUpperCase()}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '0.75rem' }}>{new Date(f.due_date).toLocaleDateString()}</td>
-                                        <td style={{ padding: '0.75rem', display: 'flex', gap: '0.75rem' }}>
-                                            <button onClick={() => handleEdit(f)} style={{ background: 'transparent', color: 'var(--color-primary)', border: 'none', cursor: 'pointer', padding: 0 }}>Edit</button>
-                                            <button onClick={() => handleDelete(f.id)} style={{ background: 'transparent', color: 'var(--color-danger)', border: 'none', cursor: 'pointer', padding: 0 }}>Delete</button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
-        );
-    }
+        const numAmount = Number(formState.amount);
+        if (!numAmount || numAmount <= 0) {
+            setFormError('Amount must be greater than 0');
+            return;
+        }
+        if (numAmount > allowedMax) {
+            setFormError(`Amount cannot be more than remaining (${formatCurrency(allowedMax)})`);
+            return;
+        }
+        if (!formState.payment_date) {
+            setFormError('Payment date is required');
+            return;
+        }
+
+        const remainingAfterPayment = allowedMax - numAmount;
+        if (remainingAfterPayment > 0 && !formState.fees_due_date && !student.fees_due_date) {
+            setFormError('Due date is required for remaining fees');
+            return;
+        }
+
+        setFormLoading(true);
+        try {
+            const isEdit = activeForm.type === 'edit_payment';
+            const url = isEdit 
+                ? `${getBackendUrl()}/api/payments/${activeForm.payment.id}`
+                : `${getBackendUrl()}/api/payments`;
+            const method = isEdit ? 'PUT' : 'POST';
+
+            const body = {
+                amount: numAmount,
+                payment_date: formState.payment_date.slice(0, 10),
+                fees_due_date: remainingAfterPayment > 0 && formState.fees_due_date ? formState.fees_due_date.slice(0, 10) : null
+            };
+
+            if (!isEdit) {
+                body.student_id = student.id;
+            }
+
+            const { ok, status, data, error } = await safeFetchJson(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify(body)
+            });
+
+            if (ok) {
+                await Promise.all([fetchStudents(), fetchPayments()]);
+                setActiveForm(null);
+                setExpandedStudentIds(prev => ({ ...prev, [student.id]: true }));
+            } else {
+                setFormError(data?.error || error || (status === 404 ? 'Backend route not found (404). Please ensure the backend is running and up-to-date.' : 'Failed to save payment'));
+            }
+        } catch (err) {
+            setFormError(err.message || 'Network error');
+        } finally {
+            setFormLoading(false);
+        }
+    };
+
+    // Delete Payment
+    const handleDeletePayment = async (paymentId) => {
+        if (!window.confirm("Delete this payment?")) return;
+        try {
+            const { ok, status, data, error } = await safeFetchJson(`${getBackendUrl()}/api/payments/${paymentId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+            if (ok) {
+                setPayments(prev => prev.filter(p => p.id !== paymentId));
+                fetchStudents();
+            } else {
+                alert(data?.error || error || `Failed to delete payment (${status})`);
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Failed to delete payment');
+        }
+    };
+
+    const classList = ['6', '7', '8', '9', '10', '11', '12'];
+    const today = getTodayString();
 
     return (
-        <div className={`glass-panel ${styles.tabContainer} animate-fade-in`}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-                <h2 style={{ margin: 0 }}>{editId ? 'Edit Fee Record' : 'Add Fee Record'}</h2>
-                <button onClick={() => setView('list')} className={styles.logoutBtn} style={{ background: 'transparent', color: 'var(--color-text-muted)', border: 'none' }}>Cancel</button>
+        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Header Title */}
+            <div>
+                <h2 style={{ color: 'var(--color-primary)', margin: '0 0 0.25rem 0' }}>Class-wise Student Fees</h2>
+                <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+                    Set individual student fees and record payments directly as money arrives.
+                </p>
             </div>
 
-            <form onSubmit={handleSubmit} className={styles.form}>
-                <div className={styles.inputGroup}>
-                    <label>Select Student</label>
-                    <select required value={formData.student_id} onChange={e => setFormData({ ...formData, student_id: e.target.value })}>
-                        {students.map(s => (
-                            <option key={s.id} value={s.id}>{s.full_name} ({s.users?.email})</option>
-                        ))}
-                    </select>
-                </div>
-                <div className={styles.inputGroup}>
-                    <label>Amount (e.g. 500.00)</label>
-                    <input required type="number" min="0" step="0.01" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} />
-                </div>
-                <div className={styles.inputGroup}>
-                    <label>Status</label>
-                    <select required value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
-                        <option value="pending">Pending</option>
-                        <option value="paid">Paid</option>
-                    </select>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                    <div className={styles.inputGroup} style={{ flex: 1 }}>
-                        <label>Due Date</label>
-                        <input required type="date" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} />
-                    </div>
-                    {formData.status === 'paid' && (
-                        <div className={styles.inputGroup} style={{ flex: 1 }}>
-                            <label>Paid Date</label>
-                            <input required type="date" value={formData.paid_date} onChange={e => setFormData({ ...formData, paid_date: e.target.value })} />
-                        </div>
-                    )}
-                </div>
+            {/* A) Class Selector Buttons */}
+            <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+                {classList.map(cls => {
+                    const isSelected = selectedClass === cls;
+                    return (
+                        <button
+                            key={cls}
+                            onClick={() => {
+                                setSelectedClass(cls);
+                                setActiveForm(null);
+                            }}
+                            style={{
+                                padding: '0.55rem 1.25rem',
+                                borderRadius: '8px',
+                                border: isSelected ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
+                                background: isSelected ? 'var(--color-primary)' : 'var(--color-surface)',
+                                color: isSelected ? '#ffffff' : 'var(--color-text-main)',
+                                fontWeight: isSelected ? '700' : '500',
+                                fontSize: '0.9rem',
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap',
+                                transition: 'all 0.2s ease',
+                                boxShadow: isSelected ? '0 2px 8px rgba(59, 130, 246, 0.3)' : 'none'
+                            }}
+                        >
+                            Class {cls}
+                        </button>
+                    );
+                })}
+            </div>
 
-                {statusMsg.message && (
-                    <div className={statusMsg.type === 'error' ? styles.errorMsg : styles.successMsg}>
-                        {statusMsg.message}
-                    </div>
-                )}
+            {/* Summary Line under class buttons */}
+            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.95rem', fontWeight: '500', margin: '-0.25rem 0 0.25rem 0' }}>
+                Class {selectedClass} · {classStudents.length} students · Total remaining: {formatCurrency(classTotalRemaining)}
+            </div>
 
-                <button type="submit" disabled={statusMsg.type === 'loading'} className={styles.submitBtn}>
-                    {editId ? 'Update Fee Record' : 'Save Fee Record'}
-                </button>
-            </form>
+            {/* Student Cards List */}
+            {loading ? (
+                <div className="glass-panel" style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+                    Loading students and payments...
+                </div>
+            ) : classStudents.length === 0 ? (
+                <div className="glass-panel" style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+                    No students in this class
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {classStudents.map(student => {
+                        const totalFees = Number(student.total_fees) || 0;
+                        const hasFeesSet = totalFees > 0;
+                        const studentPayments = (studentPaymentsMap[student.id] || [])
+                            .sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date));
+                        const paidFees = studentPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+                        const remainingFees = Math.max(0, totalFees - paidFees);
+                        const pctPaid = totalFees > 0 ? Math.min(100, Math.round((paidFees / totalFees) * 100)) : 0;
+                        const isExpanded = Boolean(expandedStudentIds[student.id]);
+
+                        const isOverdue = remainingFees > 0 && student.fees_due_date && String(student.fees_due_date).slice(0, 10) < today;
+
+                        // Status Tag
+                        let statusTag = { label: 'PENDING', bg: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' };
+                        if (remainingFees === 0) {
+                            statusTag = { label: 'FULLY PAID', bg: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: 'rgba(16, 185, 129, 0.3)' };
+                        } else if (isOverdue) {
+                            statusTag = { label: 'OVERDUE', bg: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: 'rgba(239, 68, 68, 0.3)' };
+                        }
+
+                        // Dates
+                        const latestPayment = studentPayments.length > 0 ? studentPayments[0] : null;
+                        const latestPaymentDate = latestPayment ? latestPayment.payment_date : null;
+
+                        const isFormOpen = activeForm && activeForm.studentId === student.id;
+
+                        return (
+                            <div
+                                key={student.id}
+                                className="glass-panel"
+                                style={{
+                                    padding: '1.25rem',
+                                    borderRadius: '12px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '0.85rem',
+                                    background: 'var(--color-surface)',
+                                    border: '1px solid var(--color-border)'
+                                }}
+                            >
+                                {/* Card Header: Student Name on Left, Status Tag on Right */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <div style={{
+                                            width: '36px',
+                                            height: '36px',
+                                            borderRadius: '50%',
+                                            background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+                                            color: '#fff',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontWeight: 'bold',
+                                            fontSize: '0.95rem',
+                                            flexShrink: 0
+                                        }}>
+                                            {student.full_name ? student.full_name.charAt(0).toUpperCase() : 'S'}
+                                        </div>
+                                        <div>
+                                            <div style={{ fontWeight: '600', color: 'var(--color-text-main)', fontSize: '1.05rem' }}>
+                                                {student.full_name ?? 'Unknown'}
+                                            </div>
+                                            {student.users?.email && (
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                                                    {student.users.email}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {hasFeesSet && (
+                                        <span style={{
+                                            padding: '4px 10px',
+                                            borderRadius: '12px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '700',
+                                            letterSpacing: '0.5px',
+                                            background: statusTag.bg,
+                                            color: statusTag.color,
+                                            border: `1px solid ${statusTag.border}`
+                                        }}>
+                                            {statusTag.label}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* B) STATE 1: Fees NOT Set */}
+                                {!hasFeesSet ? (
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        padding: '0.85rem 1rem',
+                                        borderRadius: '8px',
+                                        background: 'var(--color-surface-hover)',
+                                        border: '1px solid var(--color-border)',
+                                        flexWrap: 'wrap',
+                                        gap: '0.75rem'
+                                    }}>
+                                        <span style={{ color: 'var(--color-text-muted)', fontSize: '0.95rem' }}>
+                                            Fees abhi set nahi hui
+                                        </span>
+                                        {!isFormOpen && (
+                                            <button
+                                                onClick={() => handleOpenFeesForm(student)}
+                                                className={styles.submitBtn}
+                                                style={{ margin: 0, padding: '0.45rem 1.15rem', fontSize: '0.85rem' }}
+                                            >
+                                                Set fees
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    /* C) STATE 2: Fees Set */
+                                    <>
+                                        {/* Three Columns Grid */}
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                                            gap: '1rem',
+                                            padding: '0.75rem 0',
+                                            borderTop: '1px solid var(--color-border)',
+                                            borderBottom: '1px solid var(--color-border)'
+                                        }}>
+                                            {/* Column 1: Total Fees */}
+                                            <div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                                                    Total Fees
+                                                </div>
+                                                <div style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--color-text-main)' }}>
+                                                    {formatCurrency(totalFees)}
+                                                </div>
+                                                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                                                    Shuru: {student.fees_start_date ? formatDate(student.fees_start_date) : '-'}
+                                                </div>
+                                            </div>
+
+                                            {/* Column 2: Paid Fees */}
+                                            <div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                                                    Paid Fees
+                                                </div>
+                                                <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#10b981' }}>
+                                                    {formatCurrency(paidFees)}
+                                                </div>
+                                                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                                                    Last paid: {latestPaymentDate ? formatDate(latestPaymentDate) : 'Abhi tak nahi'}
+                                                </div>
+                                            </div>
+
+                                            {/* Column 3: Remaining Fees */}
+                                            <div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                                                    Remaining Fees
+                                                </div>
+                                                <div style={{ fontSize: '1.25rem', fontWeight: '700', color: remainingFees > 0 ? '#ef4444' : 'var(--color-text-main)' }}>
+                                                    {formatCurrency(remainingFees)}
+                                                </div>
+                                                <div style={{ fontSize: '0.8rem', marginTop: '2px' }}>
+                                                    {remainingFees === 0 ? (
+                                                        <span style={{ color: '#10b981', fontWeight: '600' }}>Sab clear</span>
+                                                    ) : isOverdue ? (
+                                                        <span style={{ color: '#ef4444', fontWeight: '600' }}>
+                                                            Due thi: {formatDate(student.fees_due_date)}
+                                                        </span>
+                                                    ) : student.fees_due_date ? (
+                                                        <span style={{ color: 'var(--color-text-muted)' }}>
+                                                            Next due: {formatDate(student.fees_due_date)}
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                                                            Due date not set
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Thin Progress Bar */}
+                                        <div>
+                                            <div style={{
+                                                width: '100%',
+                                                height: '6px',
+                                                borderRadius: '3px',
+                                                background: 'var(--color-border)',
+                                                overflow: 'hidden'
+                                            }}>
+                                                <div style={{
+                                                    width: `${pctPaid}%`,
+                                                    height: '100%',
+                                                    borderRadius: '3px',
+                                                    background: pctPaid === 100 ? '#10b981' : 'var(--color-primary)',
+                                                    transition: 'width 0.3s ease'
+                                                }} />
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '4px', textAlign: 'right' }}>
+                                                {pctPaid}% paid
+                                            </div>
+                                        </div>
+
+                                        {/* Bottom Action Row */}
+                                        {!isFormOpen && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', paddingTop: '0.25rem' }}>
+                                                <button
+                                                    onClick={() => toggleRecords(student.id)}
+                                                    style={{
+                                                        background: 'transparent',
+                                                        border: 'none',
+                                                        color: 'var(--color-primary)',
+                                                        cursor: 'pointer',
+                                                        fontSize: '0.85rem',
+                                                        fontWeight: '600',
+                                                        padding: '4px 0',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
+                                                    }}
+                                                >
+                                                    {isExpanded ? `▲ Hide records (${studentPayments.length})` : `▼ View records (${studentPayments.length})`}
+                                                </button>
+
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    <button
+                                                        onClick={() => handleOpenFeesForm(student)}
+                                                        style={{
+                                                            background: 'rgba(148, 163, 184, 0.15)',
+                                                            border: '1px solid var(--color-border)',
+                                                            color: 'var(--color-text-main)',
+                                                            padding: '0.35rem 0.85rem',
+                                                            borderRadius: '6px',
+                                                            fontSize: '0.85rem',
+                                                            fontWeight: '500',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Edit total
+                                                    </button>
+                                                    {remainingFees > 0 && (
+                                                        <button
+                                                            onClick={() => handleOpenAddPayment(student)}
+                                                            style={{
+                                                                background: 'rgba(59, 130, 246, 0.15)',
+                                                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                                                color: 'var(--color-primary)',
+                                                                padding: '0.35rem 0.85rem',
+                                                                borderRadius: '6px',
+                                                                fontSize: '0.85rem',
+                                                                fontWeight: '500',
+                                                                cursor: 'pointer'
+                                                            }}
+                                                        >
+                                                            + Add payment
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {/* D) INLINE FORM: "Set fees" / "Edit total" */}
+                                {isFormOpen && (activeForm.type === 'set_fees' || activeForm.type === 'edit_fees') && (() => {
+                                    const isFirstTime = activeForm.type === 'set_fees';
+                                    const liveTotal = Number(formState.total_fees) || 0;
+                                    const livePaid = isFirstTime ? (Number(formState.paid_now) || 0) : paidFees;
+                                    const liveRemaining = Math.max(0, liveTotal - livePaid);
+
+                                    return (
+                                        <div style={{
+                                            marginTop: '0.5rem',
+                                            padding: '1rem',
+                                            borderRadius: '8px',
+                                            background: 'var(--color-surface-hover)',
+                                            border: '1px solid var(--color-border)'
+                                        }}>
+                                            <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--color-text-main)' }}>
+                                                {isFirstTime ? 'Set Student Fees' : 'Edit Total Fees & Due Date'}
+                                            </h4>
+
+                                            <form onSubmit={(e) => handleSaveFees(e, student, paidFees)} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                {/* Live Summary Line */}
+                                                <div style={{
+                                                    padding: '0.5rem 0.75rem',
+                                                    background: 'var(--color-surface)',
+                                                    borderRadius: '6px',
+                                                    fontSize: '0.85rem',
+                                                    fontWeight: '600',
+                                                    color: 'var(--color-text-main)',
+                                                    border: '1px solid var(--color-border)'
+                                                }}>
+                                                    Total {formatCurrency(liveTotal)} · Paid {formatCurrency(livePaid)} · Remaining {formatCurrency(liveRemaining)}
+                                                </div>
+
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+                                                    <div className={styles.inputGroup}>
+                                                        <label>Total Fees (कुल फीस) *</label>
+                                                        <input
+                                                            required
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.01"
+                                                            placeholder="e.g. 5000"
+                                                            value={formState.total_fees}
+                                                            onChange={e => setFormState({ ...formState, total_fees: e.target.value })}
+                                                        />
+                                                    </div>
+
+                                                    <div className={styles.inputGroup}>
+                                                        <label>Fees Start Date (शुरू तिथि) *</label>
+                                                        <input
+                                                            required
+                                                            type="date"
+                                                            value={formState.fees_start_date}
+                                                            onChange={e => setFormState({ ...formState, fees_start_date: e.target.value })}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* First Time Set: Optional Initial Payment */}
+                                                {isFirstTime && (
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+                                                        <div className={styles.inputGroup}>
+                                                            <label>Paid now (optional)</label>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                step="0.01"
+                                                                placeholder="e.g. 500"
+                                                                value={formState.paid_now}
+                                                                onChange={e => setFormState({ ...formState, paid_now: e.target.value })}
+                                                            />
+                                                        </div>
+
+                                                        {Number(formState.paid_now) > 0 && (
+                                                            <div className={styles.inputGroup}>
+                                                                <label>Paid Date *</label>
+                                                                <input
+                                                                    required
+                                                                    type="date"
+                                                                    value={formState.paid_date}
+                                                                    onChange={e => setFormState({ ...formState, paid_date: e.target.value })}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Due date: hidden if remaining is 0 or less */}
+                                                {liveRemaining > 0 && (
+                                                    <div className={styles.inputGroup}>
+                                                        <label>Baaki fees ki due date *</label>
+                                                        <input
+                                                            required
+                                                            type="date"
+                                                            value={formState.fees_due_date}
+                                                            onChange={e => setFormState({ ...formState, fees_due_date: e.target.value })}
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                {formError && (
+                                                    <div className={styles.errorMsg} style={{ fontSize: '0.85rem', padding: '0.4rem 0.6rem' }}>
+                                                        {formError}
+                                                    </div>
+                                                )}
+
+                                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                                                    <button
+                                                        type="submit"
+                                                        disabled={formLoading}
+                                                        className={styles.submitBtn}
+                                                        style={{ margin: 0, padding: '0.4rem 1.25rem', fontSize: '0.85rem' }}
+                                                    >
+                                                        {formLoading ? 'Saving...' : 'Save'}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleCancelForm}
+                                                        style={{
+                                                            background: 'transparent',
+                                                            border: '1px solid var(--color-border)',
+                                                            color: 'var(--color-text-muted)',
+                                                            padding: '0.4rem 1rem',
+                                                            borderRadius: '8px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.85rem'
+                                                        }}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* E) INLINE FORM: "+ Add payment" / Payment Edit */}
+                                {isFormOpen && (activeForm.type === 'add_payment' || activeForm.type === 'edit_payment') && (() => {
+                                    const isEdit = activeForm.type === 'edit_payment';
+                                    const allowedMax = isEdit
+                                        ? Math.max(0, totalFees - (paidFees - Number(activeForm.payment.amount)))
+                                        : remainingFees;
+                                    const liveAmount = Number(formState.amount) || 0;
+                                    const remainingAfter = Math.max(0, allowedMax - liveAmount);
+
+                                    return (
+                                        <div style={{
+                                            marginTop: '0.5rem',
+                                            padding: '1rem',
+                                            borderRadius: '8px',
+                                            background: 'var(--color-surface-hover)',
+                                            border: '1px solid var(--color-border)'
+                                        }}>
+                                            <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--color-text-main)' }}>
+                                                {isEdit ? 'Edit Payment Record' : 'Record New Payment'}
+                                            </h4>
+
+                                            <form onSubmit={(e) => handleSavePayment(e, student, allowedMax)} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                {/* Live summary line */}
+                                                <div style={{
+                                                    padding: '0.5rem 0.75rem',
+                                                    background: 'var(--color-surface)',
+                                                    borderRadius: '6px',
+                                                    fontSize: '0.85rem',
+                                                    fontWeight: '600',
+                                                    color: 'var(--color-text-main)',
+                                                    border: '1px solid var(--color-border)'
+                                                }}>
+                                                    Is payment ke baad remaining: {formatCurrency(remainingAfter)}
+                                                </div>
+
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+                                                    <div className={styles.inputGroup}>
+                                                        <label>Amount received (जमा राशि) *</label>
+                                                        <input
+                                                            required
+                                                            type="number"
+                                                            min="0.01"
+                                                            step="0.01"
+                                                            placeholder={`Max ${allowedMax}`}
+                                                            value={formState.amount}
+                                                            onChange={e => setFormState({ ...formState, amount: e.target.value })}
+                                                        />
+                                                    </div>
+
+                                                    <div className={styles.inputGroup}>
+                                                        <label>Payment date (भुगतान तिथि) *</label>
+                                                        <input
+                                                            required
+                                                            type="date"
+                                                            value={formState.payment_date}
+                                                            onChange={e => setFormState({ ...formState, payment_date: e.target.value })}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Due Date: hide when remainingAfter becomes 0 */}
+                                                {remainingAfter > 0 && (
+                                                    <div className={styles.inputGroup}>
+                                                        <label>Baaki fees ki due date *</label>
+                                                        <input
+                                                            required
+                                                            type="date"
+                                                            value={formState.fees_due_date}
+                                                            onChange={e => setFormState({ ...formState, fees_due_date: e.target.value })}
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                {formError && (
+                                                    <div className={styles.errorMsg} style={{ fontSize: '0.85rem', padding: '0.4rem 0.6rem' }}>
+                                                        {formError}
+                                                    </div>
+                                                )}
+
+                                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                                                    <button
+                                                        type="submit"
+                                                        disabled={formLoading}
+                                                        className={styles.submitBtn}
+                                                        style={{ margin: 0, padding: '0.4rem 1.25rem', fontSize: '0.85rem' }}
+                                                    >
+                                                        {formLoading ? 'Saving...' : (isEdit ? 'Update Payment' : 'Save Payment')}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleCancelForm}
+                                                        style={{
+                                                            background: 'transparent',
+                                                            border: '1px solid var(--color-border)',
+                                                            color: 'var(--color-text-muted)',
+                                                            padding: '0.4rem 1rem',
+                                                            borderRadius: '8px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.85rem'
+                                                        }}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* View Records Expanded Table */}
+                                {hasFeesSet && isExpanded && (
+                                    <div style={{
+                                        marginTop: '0.5rem',
+                                        padding: '0.75rem',
+                                        borderRadius: '8px',
+                                        background: 'var(--color-surface-hover)',
+                                        border: '1px solid var(--color-border)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '0.5rem'
+                                    }}>
+                                        {studentPayments.length === 0 ? (
+                                            <div style={{ textAlign: 'center', padding: '0.75rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                                                Abhi tak koi payment nahi aayi.
+                                            </div>
+                                        ) : (
+                                            studentPayments.map(p => (
+                                                <div
+                                                    key={p.id}
+                                                    style={{
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        flexWrap: 'wrap',
+                                                        gap: '0.75rem',
+                                                        padding: '0.6rem 0.75rem',
+                                                        borderRadius: '6px',
+                                                        background: 'var(--color-surface)',
+                                                        border: '1px solid var(--color-border)'
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
+                                                        <span style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--color-text-main)' }}>
+                                                            {formatCurrency(p.amount)}
+                                                        </span>
+                                                        <span style={{
+                                                            fontSize: '0.7rem',
+                                                            fontWeight: '700',
+                                                            padding: '2px 8px',
+                                                            borderRadius: '10px',
+                                                            background: 'rgba(16, 185, 129, 0.15)',
+                                                            color: '#10b981'
+                                                        }}>
+                                                            PAID
+                                                        </span>
+                                                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                                            Paid date: {formatDate(p.payment_date)}
+                                                        </span>
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                                        <button
+                                                            onClick={() => handleOpenEditPayment(student, p)}
+                                                            style={{
+                                                                background: 'transparent',
+                                                                border: 'none',
+                                                                color: 'var(--color-primary)',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.85rem',
+                                                                fontWeight: '600'
+                                                            }}
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeletePayment(p.id)}
+                                                            style={{
+                                                                background: 'transparent',
+                                                                border: 'none',
+                                                                color: 'var(--color-danger)',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.85rem',
+                                                                fontWeight: '600'
+                                                            }}
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 };

@@ -215,7 +215,7 @@ app.get('/api/students', authenticateToken, requireRole('teacher'), async (req, 
 
         const formatted = students.map(s => ({
             id: s.id, full_name: s.full_name, father_name: s.father_name, phone: s.phone, 
-            enrollment_date: s.enrollment_date, class_name: s.class_name, 
+            enrollment_date: s.enrollment_date, class_name: s.class_name, class: s.class_name, total_fees: s.total_fees !== undefined && s.total_fees !== null ? Number(s.total_fees) : null, fees_start_date: s.fees_start_date || null, fees_due_date: s.fees_due_date || null, 
             is_approved: s.users.is_approved,
             users: { email: s.users.email }
         }));
@@ -763,6 +763,315 @@ app.get('/api/student/fees', authenticateToken, async (req, res) => {
         res.status(500).json({ error: "Internal server error" });
     }
 });
+
+// ==========================================
+// --- New Student Fees & Payments System ---
+// ==========================================
+
+// GET /api/payments -> All payments, newest first
+app.get('/api/payments', authenticateToken, requireRole('teacher'), async (req, res) => {
+    try {
+        const { data: payments, error } = await supabase
+            .from('payments')
+            .select('*')
+            .order('payment_date', { ascending: false })
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const formatted = (payments || []).map(p => ({
+            ...p,
+            amount: Number(p.amount)
+        }));
+
+        res.json(formatted);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+// PUT /api/students/:id/fees -> Set or edit total fees, start date, and due date
+app.put('/api/students/:id/fees', authenticateToken, requireRole('teacher'), async (req, res) => {
+    const studentId = req.params.id;
+    const { total_fees, fees_start_date, fees_due_date, initial_payment } = req.body;
+
+    try {
+        const numTotal = Number(total_fees);
+        if (!numTotal || isNaN(numTotal) || numTotal <= 0) {
+            return res.status(400).json({ error: "Total fees must be greater than 0" });
+        }
+        if (!fees_start_date) {
+            return res.status(400).json({ error: "Fees start date is required" });
+        }
+
+        // Fetch student
+        const { data: student, error: stErr } = await supabase
+            .from('students')
+            .select('*')
+            .eq('id', studentId)
+            .maybeSingle();
+
+        if (stErr || !student) {
+            return res.status(404).json({ error: "Student not found" });
+        }
+
+        // Fetch existing payments for this student
+        const { data: existingPayments, error: payErr } = await supabase
+            .from('payments')
+            .select('amount')
+            .eq('student_id', studentId);
+
+        if (payErr) throw payErr;
+
+        const existingPaid = (existingPayments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+
+        // Check if fees are being set for the first time
+        const isFirstTime = !student.total_fees || Number(student.total_fees) === 0;
+        let initialAmount = 0;
+        let initialDate = null;
+
+        if (isFirstTime && initial_payment && Number(initial_payment.amount) > 0) {
+            initialAmount = Number(initial_payment.amount);
+            initialDate = initial_payment.payment_date;
+            if (!initialDate) {
+                return res.status(400).json({ error: "Payment date is required for initial payment" });
+            }
+            if (initialAmount <= 0) {
+                return res.status(400).json({ error: "Initial payment amount must be greater than 0" });
+            }
+        }
+
+        const totalPaid = existingPaid + initialAmount;
+        if (numTotal < totalPaid) {
+            return res.status(400).json({ 
+                error: `Total fees cannot be less than already paid (₹${totalPaid.toLocaleString('en-IN')})` 
+            });
+        }
+
+        const remaining = numTotal - totalPaid;
+        if (remaining > 0 && !fees_due_date) {
+            return res.status(400).json({ error: "Due date is required for remaining fees" });
+        }
+
+        const finalDueDate = remaining === 0 ? null : (fees_due_date ? String(fees_due_date).slice(0, 10) : null);
+
+        // Update student fees details
+        const { error: updErr } = await supabase
+            .from('students')
+            .update({
+                total_fees: numTotal,
+                fees_start_date: String(fees_start_date).slice(0, 10),
+                fees_due_date: finalDueDate
+            })
+            .eq('id', studentId);
+
+        if (updErr) throw updErr;
+
+        // Insert initial payment if provided for first-time set
+        if (isFirstTime && initialAmount > 0) {
+            const { error: insErr } = await supabase
+                .from('payments')
+                .insert({
+                    student_id: studentId,
+                    amount: initialAmount,
+                    payment_date: String(initialDate).slice(0, 10)
+                });
+
+            if (insErr) throw insErr;
+        }
+
+        res.json({ message: "Fees updated successfully" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+// POST /api/payments -> Add payment
+app.post('/api/payments', authenticateToken, requireRole('teacher'), async (req, res) => {
+    const { student_id, amount, payment_date, fees_due_date } = req.body;
+
+    try {
+        const numAmount = Number(amount);
+        if (!numAmount || isNaN(numAmount) || numAmount <= 0) {
+            return res.status(400).json({ error: "Amount must be greater than 0" });
+        }
+        if (!payment_date) {
+            return res.status(400).json({ error: "Payment date is required" });
+        }
+        if (!student_id) {
+            return res.status(400).json({ error: "Student ID is required" });
+        }
+
+        // Fetch student
+        const { data: student, error: stErr } = await supabase
+            .from('students')
+            .select('id, total_fees, fees_due_date')
+            .eq('id', student_id)
+            .maybeSingle();
+
+        if (stErr || !student) {
+            return res.status(404).json({ error: "Student not found" });
+        }
+
+        const totalFees = Number(student.total_fees);
+        if (!totalFees || totalFees <= 0) {
+            return res.status(400).json({ error: "Total fees not set for this student. Please set fees first." });
+        }
+
+        // Existing payments
+        const { data: existingPayments, error: payErr } = await supabase
+            .from('payments')
+            .select('amount')
+            .eq('student_id', student_id);
+
+        if (payErr) throw payErr;
+
+        const currentPaid = (existingPayments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+        const currentRemaining = Math.max(0, totalFees - currentPaid);
+
+        if (numAmount > currentRemaining) {
+            return res.status(400).json({ 
+                error: `Amount cannot be more than remaining (₹${currentRemaining.toLocaleString('en-IN')})` 
+            });
+        }
+
+        const newRemaining = currentRemaining - numAmount;
+        if (newRemaining > 0 && !fees_due_date && !student.fees_due_date) {
+            return res.status(400).json({ error: "Due date is required for remaining fees" });
+        }
+
+        // Insert payment
+        const { data: newPayment, error: insErr } = await supabase
+            .from('payments')
+            .insert({
+                student_id,
+                amount: numAmount,
+                payment_date: String(payment_date).slice(0, 10)
+            })
+            .select()
+            .single();
+
+        if (insErr) throw insErr;
+
+        // If remaining becomes 0, clear fees_due_date. Otherwise update if fees_due_date provided.
+        if (newRemaining === 0) {
+            await supabase.from('students').update({ fees_due_date: null }).eq('id', student_id);
+        } else if (fees_due_date) {
+            await supabase.from('students').update({ fees_due_date: String(fees_due_date).slice(0, 10) }).eq('id', student_id);
+        }
+
+        res.status(201).json({ message: "Payment recorded successfully", payment: newPayment });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+// PUT /api/payments/:id -> Edit payment
+app.put('/api/payments/:id', authenticateToken, requireRole('teacher'), async (req, res) => {
+    const paymentId = req.params.id;
+    const { amount, payment_date, fees_due_date } = req.body;
+
+    try {
+        const numAmount = Number(amount);
+        if (!numAmount || isNaN(numAmount) || numAmount <= 0) {
+            return res.status(400).json({ error: "Amount must be greater than 0" });
+        }
+        if (!payment_date) {
+            return res.status(400).json({ error: "Payment date is required" });
+        }
+
+        // Fetch payment
+        const { data: payment, error: pErr } = await supabase
+            .from('payments')
+            .select('*')
+            .eq('id', paymentId)
+            .maybeSingle();
+
+        if (pErr || !payment) {
+            return res.status(404).json({ error: "Payment not found" });
+        }
+
+        const studentId = payment.student_id;
+
+        // Fetch student
+        const { data: student, error: stErr } = await supabase
+            .from('students')
+            .select('id, total_fees, fees_due_date')
+            .eq('id', studentId)
+            .maybeSingle();
+
+        if (stErr || !student) {
+            return res.status(404).json({ error: "Student not found" });
+        }
+
+        const totalFees = Number(student.total_fees) || 0;
+
+        // Fetch payments for student
+        const { data: existingPayments, error: payErr } = await supabase
+            .from('payments')
+            .select('id, amount')
+            .eq('student_id', studentId);
+
+        if (payErr) throw payErr;
+
+        // Sum excluding this payment
+        const paidExcludingThis = (existingPayments || [])
+            .filter(p => p.id !== paymentId)
+            .reduce((sum, p) => sum + Number(p.amount), 0);
+
+        const remainingWithoutThis = Math.max(0, totalFees - paidExcludingThis);
+
+        if (numAmount > remainingWithoutThis) {
+            return res.status(400).json({ 
+                error: `Amount cannot be more than remaining (₹${remainingWithoutThis.toLocaleString('en-IN')})` 
+            });
+        }
+
+        const newRemaining = remainingWithoutThis - numAmount;
+        if (newRemaining > 0 && !fees_due_date && !student.fees_due_date) {
+            return res.status(400).json({ error: "Due date is required for remaining fees" });
+        }
+
+        // Update payment
+        const { error: updErr } = await supabase
+            .from('payments')
+            .update({
+                amount: numAmount,
+                payment_date: String(payment_date).slice(0, 10)
+            })
+            .eq('id', paymentId);
+
+        if (updErr) throw updErr;
+
+        // Update student due date
+        if (newRemaining === 0) {
+            await supabase.from('students').update({ fees_due_date: null }).eq('id', studentId);
+        } else if (fees_due_date) {
+            await supabase.from('students').update({ fees_due_date: String(fees_due_date).slice(0, 10) }).eq('id', studentId);
+        }
+
+        res.json({ message: "Payment updated successfully" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+// DELETE /api/payments/:id -> Delete payment
+app.delete('/api/payments/:id', authenticateToken, requireRole('teacher'), async (req, res) => {
+    try {
+        const { error } = await supabase.from('payments').delete().eq('id', req.params.id);
+        if (error) throw error;
+        res.json({ message: "Payment deleted successfully" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
 
 app.get('/api/me', authenticateToken, async (req, res) => {
     try {
