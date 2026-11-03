@@ -22,7 +22,7 @@ const Home = () => {
   };
 
   return (
-    <div className={styles.homeContainer}>
+    <div className={styles.homeContainer}>  
       {/* Ambient Background Elements */}
       <div className={styles.orb1}></div>
       <div className={styles.orb2}></div>
