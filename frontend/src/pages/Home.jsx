@@ -1,12 +1,23 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Video, TrendingUp, Bell, ArrowRight, Activity, Users, Star } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { BookOpen, Video, TrendingUp, Bell, ArrowRight, Activity, Users, Star, Menu, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import styles from './Home.module.css';
 import heroImage from '../assets/hero-image.jpg';
 
 const Home = () => {
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -29,18 +40,79 @@ const Home = () => {
 
       {/* Navbar */}
       <nav className={styles.navbar}>
-        <div className={styles.logo}>
-          <img src="/logo.jpeg" alt="A.P. Coaching Classes Logo" className={styles.logoImage} />
-          A.P. COACHING CLASSES
+        <div className={styles.navInner}>
+          <div className={styles.logo} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            <img src="/logo.jpeg" alt="A.P. Coaching Classes Logo" className={styles.logoImage} />
+            <span className={styles.logoText}>
+              <span className={styles.logoTextMain}>A.P. COACHING</span>{' '}
+              <span className={styles.logoTextSuffix}>CLASSES</span>
+            </span>
+          </div>
+
+          <div className={styles.navLinks}>
+            <a href="#home">Home</a>
+            <a href="#stats">Impact</a>
+            <a href="#features">Features</a>
+          </div>
+
+          <div className={styles.navActions}>
+            <button className={styles.loginBtn} onClick={() => navigate('/login')}>
+              <span className={styles.desktopLoginText}>Login to Portal</span>
+              <span className={styles.mobileLoginText}>Login</span>
+            </button>
+
+            <button 
+              className={styles.menuToggleBtn} 
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? 'Close Menu' : 'Open Menu'}
+            >
+              {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
+          </div>
         </div>
-        <div className={styles.navLinks}>
-          <a href="#home">Home</a>
-          <a href="#stats">Impact</a>
-          <a href="#features">Features</a>
-        </div>
-        <button className={styles.loginBtn} onClick={() => navigate('/login')}>
-          Login to Portal
-        </button>
+
+        {/* Mobile Dropdown Menu */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div 
+              className={styles.mobileMenu}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+            >
+              <div className={styles.mobileMenuLinks}>
+                <a 
+                  href="#home" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={styles.mobileNavLink}
+                >
+                  Home
+                </a>
+                <a 
+                  href="#stats" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={styles.mobileNavLink}
+                >
+                  Impact
+                </a>
+                <a 
+                  href="#features" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={styles.mobileNavLink}
+                >
+                  Features
+                </a>
+                <button 
+                  className={styles.mobileMenuLoginBtn} 
+                  onClick={() => { setMobileMenuOpen(false); navigate('/login'); }}
+                >
+                  Login to Portal →
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
       {/* Main Content */}
