@@ -1,25 +1,26 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
 :root {
-  /* Colors - Light Vibrant Theme */
-  --color-primary: #FF7B00;
-  --color-primary-hover: #E86A00; 
-  --color-secondary: #00A6FB;
+  /* Colors - Light Theme (Off-white, Deep Navy, Amber & Blue) */
+  --color-primary: #E08A00;
+  --color-primary-hover: #C97B00; 
+  --color-secondary: #1F7FD1;
+  --color-secondary-hover: #1869B0;
   --color-accent: #7B2CBF;
 
-  --color-background: #F8FAFC;
+  --color-background: #FBF8F1;
   
-  --color-surface: #FFFFFF;
-  --color-surface-hover: #F1F5F9;
+  --color-surface: rgba(255, 255, 255, 0.65);
+  --color-surface-hover: rgba(255, 255, 255, 0.85);
 
-  --color-text-main: #1E293B;
-  --color-text-muted: #64748B;
+  --color-text-main: #1B2240;
+  --color-text-muted: #5A6689;
 
-  --color-border: #E2E8F0;
+  --color-border: rgba(27, 34, 64, 0.08);
   --color-danger: #EF4444;
 
   /* Typography */
-  --font-family-main: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-family-heading: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --font-family-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-family-main: var(--font-family-body);
 
   /* Spacing */
   --spacing-xs: 0.25rem;
@@ -33,17 +34,18 @@
   --border-radius-sm: 0.375rem;
   --border-radius-md: 0.75rem;
   --border-radius-lg: 1.5rem;
+  --border-radius-3xl: 1.5rem;
   --border-radius-full: 9999px;
 
   /* Effects */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.5);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 20px 40px -15px rgba(31, 127, 209, 0.15);
+  --shadow-glow: 0 8px 24px -4px rgba(224, 138, 0, 0.35);
 
   /* Glassmorphism */
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(255, 255, 255, 1);
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.8);
 }
 
 * {
@@ -57,10 +59,9 @@ html {
 }
 
 body {
-  font-family: var(--font-family-main);
+  font-family: var(--font-family-body);
   background-color: var(--color-background);
-  background-image: radial-gradient(circle at top right, rgba(255, 123, 0, 0.1) 0%, transparent 40%),
-                    radial-gradient(circle at bottom left, rgba(0, 166, 251, 0.1) 0%, transparent 40%);
+  background-image: radial-gradient(circle at 50% 0%, rgba(31, 127, 209, 0.16) 0%, rgba(251, 248, 241, 0.8) 45%, #FBF8F1 100%);
   background-attachment: fixed;
   color: var(--color-text-main);
   line-height: 1.5;
@@ -75,7 +76,9 @@ h3,
 h4,
 h5,
 h6 {
-  font-weight: 600;
+  font-family: var(--font-family-heading);
+  font-weight: 700;
+  color: var(--color-text-main);
   line-height: 1.2;
 }
 

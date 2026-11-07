@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Video, TrendingUp, Bell, ArrowRight, Activity, Users, Star, Menu, X } from 'lucide-react';
+import { BookOpen, Video, TrendingUp, Bell, ArrowRight, Activity, Users, Star, Menu, X, Check, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './Home.module.css';
 import heroImage from '../assets/hero-image.jpg';
+import Background3D from '../components/common/Background3D';
+import Reveal from '../components/common/Reveal';
+import Tilt from '../components/common/Tilt';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -23,20 +26,33 @@ const Home = () => {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: { staggerChildren: 0.2 }
+      transition: { staggerChildren: 0.15 }
     }
   };
 
   const itemVariants = {
     hidden: { opacity: 0, y: 30 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.2, 0.8, 0.2, 1] } }
   };
 
+  const marqueeSubjects = [
+    'Mathematics',
+    'Science',
+    'English',
+    'Social Studies',
+    'Algebra',
+    'Calculus',
+    'NCERT',
+    'Board Prep'
+  ];
+
   return (
-    <div className={styles.homeContainer}>  
-      {/* Ambient Background Elements */}
-      <div className={styles.orb1}></div>
-      <div className={styles.orb2}></div>
+    <div className={styles.homeContainer}>
+      {/* Fixed 3D Background (React Three Fiber) */}
+      <Background3D />
+
+      {/* Fixed 64px Grid Background with Radial Mask */}
+      <div className={styles.fixedGridOverlay}></div>
 
       {/* Navbar */}
       <nav className={styles.navbar}>
@@ -115,7 +131,7 @@ const Home = () => {
         </AnimatePresence>
       </nav>
 
-      {/* Main Content */}
+      {/* Main Content (z-index 10) */}
       <main className={styles.content}>
 
         {/* Hero Section */}
@@ -127,19 +143,26 @@ const Home = () => {
           animate="visible"
         >
           <div className={styles.heroContent}>
+            {/* Admissions Open Glass Pill Badge */}
             <motion.div variants={itemVariants} className={styles.heroBadge}>
-              🎓 Admissions Open for 2026-2027 Session
+              <span className={styles.pulsingDot}></span>
+              <span>🎓 Admissions Open for 2026-2027 Session</span>
             </motion.div>
-            <motion.h1 variants={itemVariants} className={styles.heroTitle}>
-              Excellence in Education<br />with A.P. Coaching Classes
 
+            {/* Main Heading with Brand Name Gradient Text */}
+            <motion.h1 variants={itemVariants} className={styles.heroTitle}>
+              Excellence in Education<br />
+              <span className={styles.brandGradientText}>with A.P. Coaching Classes</span>
             </motion.h1>
+
             <motion.p variants={itemVariants} className={styles.heroSubtitle}>
               Expert guidance for <strong>Class 6th to 10th (All Subjects)</strong> and Specialized <strong>Mathematics Coaching for Class 11th & 12th</strong>. We focus on conceptual clarity and board exam excellence.
             </motion.p>
+
             <motion.div variants={itemVariants} className={styles.ctaGroup}>
               <button className={styles.primaryCta} onClick={() => navigate('/login')}>
-                Get Started Now <ArrowRight size={20} style={{ display: 'inline', verticalAlign: 'middle', marginLeft: '8px', }} />
+                <span>Get Started Now</span>
+                <ArrowRight size={20} className={styles.ctaArrow} />
               </button>
               <button className={styles.secondaryCta} onClick={() => document.getElementById('features').scrollIntoView({ behavior: 'smooth' })}>
                 Explore Features
@@ -147,127 +170,226 @@ const Home = () => {
             </motion.div>
           </div>
 
+          {/* Hero Visual Area with Floating 3D Badges (Aleut-Style) */}
           <motion.div variants={itemVariants} className={styles.heroImageWrapper}>
-            <img src={heroImage} alt="Students studying together" className={styles.heroImg} />
-            <div className={styles.heroImageGlow}></div>
+            <div className={styles.imageInner}>
+              <img src={heroImage} alt="Students studying together" className={styles.heroImg} />
+              <div className={styles.heroImageGlow}></div>
+            </div>
+
+            {/* Floating 3D Badge 1: Round Check Chip (Top-Left) */}
+            <div className={`${styles.floatingBadge} ${styles.badgeTopLeft}`}>
+              <div className={styles.roundChipBlue}>
+                <Check size={26} color="#FFFFFF" strokeWidth={3} />
+              </div>
+            </div>
+
+            {/* Floating 3D Badge 2: Round Sparkle Chip (Right Side) */}
+            <div className={`${styles.floatingBadge} ${styles.badgeRight}`}>
+              <div className={styles.roundChipAmber}>
+                <Sparkles size={24} color="#FFFFFF" strokeWidth={2.5} />
+              </div>
+            </div>
+
+            {/* Floating 3D Badge 3: Five Star Review Card (-4deg tilt, Bottom-Left) */}
+            <div className={`${styles.floatingBadge} ${styles.badgeBottomLeft}`}>
+              <div className={styles.glassReviewCard}>
+                <div className={styles.starRow}>
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} size={15} fill="#E08A00" color="#E08A00" />
+                  ))}
+                </div>
+                <div className={styles.reviewTitle}>Five Star Parents' Choice</div>
+                <div className={styles.reviewSub}>Concept clarity & best board results</div>
+              </div>
+            </div>
+
+            {/* Floating 3D Badge 4: Testimonial Pill (3deg tilt, Bottom-Right) */}
+            <div className={`${styles.floatingBadge} ${styles.badgeBottomRight}`}>
+              <div className={styles.orangePillBadge}>
+                <span className={styles.pillEmoji}>🏆</span>
+                <span>99% Board Success Rate</span>
+              </div>
+            </div>
           </motion.div>
         </motion.section>
 
-        {/* Stats Section */}
-        <motion.section
-          id="stats"
-          className={styles.statsContainer}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.5 }}
-          variants={containerVariants}
-        >
-          <motion.div variants={itemVariants} className={styles.statItem}>
-            <div className={styles.statValue}>50,000+</div>
-            <div className={styles.statLabel}>Students Guided</div>
-          </motion.div>
-          <motion.div variants={itemVariants} className={styles.statItem}>
-            <div className={styles.statValue}>99%</div>
-            <div className={styles.statLabel}>Board Success Rate</div>
-          </motion.div>
-          <motion.div variants={itemVariants} className={styles.statItem}>
-            <div className={styles.statValue}>Top</div>
-            <div className={styles.statLabel}>Results Every Year</div>
-          </motion.div>
-        </motion.section>
+        {/* Extras: Infinite Subject Marquee Strip (30s linear loop) */}
+        <div className={styles.marqueeSection}>
+          <div className={styles.marqueeTrack}>
+            {[...marqueeSubjects, ...marqueeSubjects, ...marqueeSubjects].map((subject, index) => (
+              <div key={index} className={styles.marqueeItem}>
+                <span className={styles.marqueeDot}>✦</span>
+                <span className={styles.marqueeText}>{subject}</span>
+              </div>
+            ))}
+          </div>
+        </div>
 
-        {/* Features Section */}
-        <motion.section
-          id="features"
-          className={styles.featuresSection}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.2 }}
-          variants={containerVariants}
-        >
-          <motion.h2 variants={itemVariants} className={styles.sectionTitle}>What We Offer</motion.h2>
-          <motion.p variants={itemVariants} className={styles.sectionSubtitle}>Dedicated teaching methodology tailored for board exam success and strong fundamentals.</motion.p>
+        {/* Stats Section with Scroll Reveal & 3D Tilt */}
+        <Reveal threshold={0.15}>
+          <section id="stats" className={styles.statsContainer}>
+            <Tilt className={styles.tiltStatWrapper}>
+              <div className={styles.statItem}>
+                <div className={styles.statValue}>50,000+</div>
+                <div className={styles.statLabel}>Students Guided</div>
+              </div>
+            </Tilt>
+
+            <Tilt className={styles.tiltStatWrapper}>
+              <div className={styles.statItem}>
+                <div className={styles.statValue}>99%</div>
+                <div className={styles.statLabel}>Board Success Rate</div>
+              </div>
+            </Tilt>
+
+            <Tilt className={styles.tiltStatWrapper}>
+              <div className={styles.statItem}>
+                <div className={styles.statValue}>Top</div>
+                <div className={styles.statLabel}>Results Every Year</div>
+              </div>
+            </Tilt>
+          </section>
+        </Reveal>
+
+        {/* Features Section with Scroll Reveal & 3D Tilt Cards */}
+        <section id="features" className={styles.featuresSection}>
+          <Reveal threshold={0.15}>
+            <h2 className={styles.sectionTitle}>What We Offer</h2>
+            <p className={styles.sectionSubtitle}>Dedicated teaching methodology tailored for board exam success and strong fundamentals.</p>
+          </Reveal>
 
           <div className={styles.featuresGrid}>
-            <motion.div variants={itemVariants} className={styles.featureCard}>
-              <div className={`${styles.featureIcon} ${styles.blue}`}>
-                <BookOpen size={32} />
-              </div>
-              <h3 className={styles.featureTitle}>Class 6th to 10th (All Subjects)</h3>
-              <p className={styles.featureDesc}>
-                Comprehensive coaching covering Mathematics, Science, English, and Social Studies to build a rock-solid foundation for board exams.
-              </p>
-            </motion.div>
+            {/* Feature 1 */}
+            <Reveal delay={0} threshold={0.1}>
+              <Tilt className={styles.tiltFeatureWrapper}>
+                <div className={styles.featureCard}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.featureIcon}>
+                      <BookOpen size={28} />
+                    </div>
+                    <span className={styles.featureNumber}>01</span>
+                  </div>
+                  <h3 className={styles.featureTitle}>Class 6th to 10th (All Subjects)</h3>
+                  <p className={styles.featureDesc}>
+                    Comprehensive coaching covering Mathematics, Science, English, and Social Studies to build a rock-solid foundation for board exams.
+                  </p>
+                </div>
+              </Tilt>
+            </Reveal>
 
-            <motion.div variants={itemVariants} className={styles.featureCard}>
-              <div className={`${styles.featureIcon} ${styles.green}`}>
-                <TrendingUp size={32} />
-              </div>
-              <h3 className={styles.featureTitle}>Class 11th & 12th (Mathematics)</h3>
-              <p className={styles.featureDesc}>
-                Specialized Mathematics coaching focusing on NCERT syllabus, advanced problem-solving, and competitive exam readiness.
-              </p>
-            </motion.div>
+            {/* Feature 2 */}
+            <Reveal delay={120} threshold={0.1}>
+              <Tilt className={styles.tiltFeatureWrapper}>
+                <div className={styles.featureCard}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.featureIcon}>
+                      <TrendingUp size={28} />
+                    </div>
+                    <span className={styles.featureNumber}>02</span>
+                  </div>
+                  <h3 className={styles.featureTitle}>Class 11th & 12th (Mathematics)</h3>
+                  <p className={styles.featureDesc}>
+                    Specialized Mathematics coaching focusing on NCERT syllabus, advanced problem-solving, and competitive exam readiness.
+                  </p>
+                </div>
+              </Tilt>
+            </Reveal>
 
-            <motion.div variants={itemVariants} className={styles.featureCard}>
-              <div className={`${styles.featureIcon} ${styles.orange}`}>
-                <Users size={32} />
-              </div>
-              <h3 className={styles.featureTitle}>Personalized Attention</h3>
-              <p className={styles.featureDesc}>
-                We maintain optimal batch sizes to ensure every student gets individual focus, doubt-solving sessions, and proper mentorship.
-              </p>
-            </motion.div>
+            {/* Feature 3 */}
+            <Reveal delay={240} threshold={0.1}>
+              <Tilt className={styles.tiltFeatureWrapper}>
+                <div className={styles.featureCard}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.featureIcon}>
+                      <Users size={28} />
+                    </div>
+                    <span className={styles.featureNumber}>03</span>
+                  </div>
+                  <h3 className={styles.featureTitle}>Personalized Attention</h3>
+                  <p className={styles.featureDesc}>
+                    We maintain optimal batch sizes to ensure every student gets individual focus, doubt-solving sessions, and proper mentorship.
+                  </p>
+                </div>
+              </Tilt>
+            </Reveal>
 
-            <motion.div variants={itemVariants} className={styles.featureCard}>
-              <div className={`${styles.featureIcon} ${styles.blue}`}>
-                <Activity size={32} />
-              </div>
-              <h3 className={styles.featureTitle}>Weekly Mock Tests</h3>
-              <p className={styles.featureDesc}>
-                Regular weekly assessments and detailed performance tracking to keep students exam-ready and confident at all times.
-              </p>
-            </motion.div>
+            {/* Feature 4 */}
+            <Reveal delay={0} threshold={0.1}>
+              <Tilt className={styles.tiltFeatureWrapper}>
+                <div className={styles.featureCard}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.featureIcon}>
+                      <Activity size={28} />
+                    </div>
+                    <span className={styles.featureNumber}>04</span>
+                  </div>
+                  <h3 className={styles.featureTitle}>Weekly Mock Tests</h3>
+                  <p className={styles.featureDesc}>
+                    Regular weekly assessments and detailed performance tracking to keep students exam-ready and confident at all times.
+                  </p>
+                </div>
+              </Tilt>
+            </Reveal>
 
-            <motion.div variants={itemVariants} className={styles.featureCard}>
-              <div className={`${styles.featureIcon} ${styles.orange}`}>
-                <Video size={32} />
-              </div>
-              <h3 className={styles.featureTitle}>Smart Study Material</h3>
-              <p className={styles.featureDesc}>
-                Students receive curated handwritten notes, practice sheets, and previous year question banks to reinforce their learning.
-              </p>
-            </motion.div>
+            {/* Feature 5 */}
+            <Reveal delay={120} threshold={0.1}>
+              <Tilt className={styles.tiltFeatureWrapper}>
+                <div className={styles.featureCard}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.featureIcon}>
+                      <Video size={28} />
+                    </div>
+                    <span className={styles.featureNumber}>05</span>
+                  </div>
+                  <h3 className={styles.featureTitle}>Smart Study Material</h3>
+                  <p className={styles.featureDesc}>
+                    Students receive curated handwritten notes, practice sheets, and previous year question banks to reinforce their learning.
+                  </p>
+                </div>
+              </Tilt>
+            </Reveal>
 
-            <motion.div variants={itemVariants} className={styles.featureCard}>
-              <div className={`${styles.featureIcon} ${styles.green}`}>
-                <Star size={32} />
-              </div>
-              <h3 className={styles.featureTitle}>Proven Track Record</h3>
-              <p className={styles.featureDesc}>
-                Consistent toppers in local board exams year after year. Our results speak for our dedication and teaching quality.
-              </p>
-            </motion.div>
+            {/* Feature 6 */}
+            <Reveal delay={240} threshold={0.1}>
+              <Tilt className={styles.tiltFeatureWrapper}>
+                <div className={styles.featureCard}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.featureIcon}>
+                      <Star size={28} />
+                    </div>
+                    <span className={styles.featureNumber}>06</span>
+                  </div>
+                  <h3 className={styles.featureTitle}>Proven Track Record</h3>
+                  <p className={styles.featureDesc}>
+                    Consistent toppers in local board exams year after year. Our results speak for our dedication and teaching quality.
+                  </p>
+                </div>
+              </Tilt>
+            </Reveal>
           </div>
-        </motion.section>
+        </section>
 
-        {/* Pre-Footer CTA */}
-        <motion.section
-          className={styles.preFooter}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={containerVariants}
-        >
-          <motion.h2 variants={itemVariants} className={styles.preFooterTitle}>Ready to start your journey?</motion.h2>
-          <motion.p variants={itemVariants} className={styles.preFooterSubtitle}>Enroll today to secure your seat in our upcoming batches and take the first step towards academic excellence.</motion.p>
-          <motion.div variants={itemVariants} className={styles.preFooterBtns}>
-            <button className={styles.primaryCta} onClick={() => navigate('/login')}>Login to Student Portal</button>
-          </motion.div>
-        </motion.section>
+        {/* Pre-Footer CTA (Blue gradient card, white text, white pill button) */}
+        <Reveal threshold={0.15}>
+          <section className={styles.preFooter}>
+            <Tilt className={styles.tiltCtaWrapper}>
+              <div className={styles.preFooterCard}>
+                <h2 className={styles.preFooterTitle}>Ready to start your journey?</h2>
+                <p className={styles.preFooterSubtitle}>
+                  Enroll today to secure your seat in our upcoming batches and take the first step towards academic excellence.
+                </p>
+                <div className={styles.preFooterBtns}>
+                  <button className={styles.preFooterWhiteBtn} onClick={() => navigate('/login')}>
+                    Login to Student Portal
+                  </button>
+                </div>
+              </div>
+            </Tilt>
+          </section>
+        </Reveal>
 
       </main>
-
 
       {/* Footer */}
       <footer className={styles.footer}>
@@ -276,7 +398,7 @@ const Home = () => {
           <div className={styles.footerBrand}>
             <div className={styles.footerLogo}>
               <img src="/logo.jpeg" alt="A.P. Coaching Logo" className={styles.logoImage} />
-              A.P. COACHING
+              <span>A.P. COACHING</span>
             </div>
             <p className={styles.footerTagline}>
               The smartest way to elevate your learning.<br />Beautifully designed. Powerfully simple.
@@ -285,7 +407,7 @@ const Home = () => {
               <span className={styles.footerHeading}>NEWSLETTER</span>
               <div className={styles.newsletterInputBox}>
                 <input type="email" placeholder="your@email.com" className={styles.newsletterInput} />
-                <button className={styles.newsletterBtn}>
+                <button className={styles.newsletterBtn} aria-label="Subscribe">
                   <ArrowRight size={16} />
                 </button>
               </div>
