@@ -5,17 +5,25 @@ const StudentNoticesTab = () => {
     const [notices, setNotices] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    const getBackendUrl = () => {
+        if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+            return 'http://localhost:5000';
+        }
+        return import.meta.env.VITE_BACKEND_URL || '';
+    };
+
     useEffect(() => {
         fetchNotices();
+        localStorage.setItem('last_seen_notice_time', new Date().toISOString());
     }, []);
 
     const fetchNotices = async () => {
         try {
-            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/notices', {
+            const res = await fetch(getBackendUrl() + '/api/notices', {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();
-            if (res.ok) setNotices(data);
+            if (res.ok) setNotices(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error(err);
         } finally {

@@ -356,6 +356,23 @@ app.post('/api/notes', authenticateToken, requireRole('teacher'), upload.single(
         }
         
         const { data: noteData } = await supabase.from('notes').select('*').eq('id', noteId).maybeSingle();
+        
+        // Auto-broadcast notice for students
+        try {
+            const noteNoticeId = crypto.randomUUID();
+            const noteTitle = `📚 New Study Note: ${title || 'New Material'}`;
+            const targetClass = class_name && class_name !== 'General' ? `Class ${class_name}` : 'All Classes';
+            const noteContent = `New study material has been added for ${targetClass}${subject ? ' (' + subject + ')' : ''}. Open the Study Notes tab to view!`;
+            await supabase.from('notices').insert({
+                id: noteNoticeId,
+                title: noteTitle,
+                content: noteContent,
+                created_by: req.user.id
+            });
+        } catch (noticeErr) {
+            console.warn("Could not auto-create notice for note:", noticeErr);
+        }
+
         res.status(201).json({ message: "Note uploaded successfully", note: noteData });
     } catch (err) {
         console.error("Error in POST /api/notes:", err);
@@ -412,6 +429,23 @@ app.post('/api/books', authenticateToken, requireRole('teacher'), upload.fields(
         });
         
         const { data: bookData } = await supabase.from('books').select('*').eq('id', bookId).maybeSingle();
+
+        // Auto-broadcast notice for students
+        try {
+            const bookNoticeId = crypto.randomUUID();
+            const bookTitle = `📖 New Book Added: ${title || 'New Book'}`;
+            const targetClass = class_name && class_name !== 'General' ? `Class ${class_name}` : 'All Classes';
+            const bookContent = `A new textbook/reference book has been added to the Digital Library for ${targetClass}. Check it out in the Digital Library tab!`;
+            await supabase.from('notices').insert({
+                id: bookNoticeId,
+                title: bookTitle,
+                content: bookContent,
+                created_by: req.user.id
+            });
+        } catch (noticeErr) {
+            console.warn("Could not auto-create notice for book:", noticeErr);
+        }
+
         res.status(201).json({ message: "Book uploaded successfully", book: bookData });
     } catch (err) {
         console.error("Error in POST /api/notes:", err);
@@ -508,7 +542,10 @@ app.post('/api/notices', authenticateToken, requireRole('teacher'), async (req, 
 
 app.get('/api/notices', authenticateToken, async (req, res) => {
     try {
-        const { data: notices } = await supabase.from('notices').select('*').order('created_at', { ascending: false });
+        const { data: notices } = await supabase.from('notices')
+            .select('*')
+            .neq('title', '__LIVE_CLASS_STATUS__')
+            .order('created_at', { ascending: false });
         res.json(notices || []);
     } catch (err) {
         res.status(500).json({ error: "Internal server error" });
@@ -1129,11 +1166,31 @@ app.get('/api/me', authenticateToken, async (req, res) => {
 // --- Notifications ---
 app.get('/api/notifications/unread', authenticateToken, async (req, res) => {
     try {
-        const yesterday = new Date(Date.now() - 24*60*60*1000).toISOString();
-        const { count, error } = await supabase.from('notices').select('*', { count: 'exact', head: true }).gte('created_at', yesterday);
-        res.json({ count: count || 0 });
+        const { lastSeen } = req.query;
+        let query = supabase.from('notices')
+            .select('*')
+            .neq('title', '__LIVE_CLASS_STATUS__')
+            .order('created_at', { ascending: false });
+
+        if (lastSeen) {
+            query = query.gt('created_at', lastSeen);
+        } else {
+            const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+            query = query.gte('created_at', twoDaysAgo);
+        }
+
+        const { data: notices, error } = await query;
+        if (error) throw error;
+
+        const unreadList = notices || [];
+        res.json({ 
+            count: unreadList.length,
+            latestNotice: unreadList[0] || null,
+            notices: unreadList.slice(0, 5)
+        });
     } catch (err) {
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Notifications unread error:", err);
+        res.status(500).json({ error: "Internal server error", count: 0, latestNotice: null, notices: [] });
     }
 });
 
@@ -1152,6 +1209,18 @@ app.post('/api/quizzes', authenticateToken, requireRole('teacher'), async (req, 
             }));
             await supabase.from('quiz_questions').insert(questionInserts);
         }
+
+        // Auto broadcast notice for students
+        try {
+            const targetClass = class_name && class_name !== 'General' ? `Class ${class_name}` : 'All Classes';
+            await supabase.from('notices').insert({
+                id: crypto.randomUUID(),
+                title: `📝 New Quiz: ${title || 'Quiz'}`,
+                content: `A new quiz has been published for ${targetClass}. Test your preparation now in the Quizzes tab!`,
+                created_by: req.user.id
+            });
+        } catch (noticeErr) {}
+
         res.status(201).json({ message: "Quiz created successfully", quizId });
     } catch (err) {
         console.error("Error in POST /api/notes:", err);
@@ -1290,6 +1359,19 @@ app.post('/api/live-class', authenticateToken, requireRole('teacher'), async (re
                 created_by: req.user.id 
             });
         }
+
+        // If teacher started live class, broadcast notification
+        if (isActive) {
+            try {
+                await supabase.from('notices').insert({
+                    id: crypto.randomUUID(),
+                    title: `🔴 Live Class has Started!`,
+                    content: `Your teacher is now live! Tap the Live Class tab to join the class right now.`,
+                    created_by: req.user.id
+                });
+            } catch (noticeErr) {}
+        }
+
         res.json({ message: "Live class status updated successfully" });
     } catch (err) {
         res.status(500).json({ error: "Internal server error" });

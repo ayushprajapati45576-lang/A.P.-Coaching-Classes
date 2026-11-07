@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react';
 import styles from './Tabs.module.css';
 
 const NoticesTab = () => {
+    const getBackendUrl = () => {
+        if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+            return 'http://localhost:5000';
+        }
+        return import.meta.env.VITE_BACKEND_URL || '';
+    };
+
     const [view, setView] = useState('list'); // 'list' or 'add'
 
     // List State
@@ -22,11 +29,11 @@ const NoticesTab = () => {
     const fetchNotices = async () => {
         setLoading(true);
         try {
-            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/notices', {
+            const res = await fetch(getBackendUrl() + '/api/notices', {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
             const data = await res.json();
-            if (res.ok) setNotices(data);
+            if (res.ok) setNotices(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error(err);
         } finally {
@@ -35,10 +42,9 @@ const NoticesTab = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this?')) return;
         if (!window.confirm("Are you sure you want to delete this notice?")) return;
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/notices/${id}`, {
+            const res = await fetch(`${getBackendUrl()}/api/notices/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
@@ -52,10 +58,10 @@ const NoticesTab = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setStatus({ type: 'loading', message: 'Posting notice...' });
+        setStatus({ type: 'loading', message: 'Posting notice & notifying students...' });
 
         try {
-            const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/notices', {
+            const res = await fetch(getBackendUrl() + '/api/notices', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -66,7 +72,7 @@ const NoticesTab = () => {
 
             const data = await res.json();
             if (res.ok) {
-                setStatus({ type: 'success', message: 'Notice posted successfully!' });
+                setStatus({ type: 'success', message: 'Notice posted! Notification delivered to students.' });
                 setTitle('');
                 setContent('');
                 setTimeout(() => setView('list'), 1500);

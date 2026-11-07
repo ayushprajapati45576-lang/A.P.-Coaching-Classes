@@ -44,8 +44,61 @@ const StudentDashboard = () => {
     }, []);
 
     const [unreadCount, setUnreadCount] = useState(0);
+    const [activeToast, setActiveToast] = useState(null);
+    const [notificationPermission, setNotificationPermission] = useState(
+        typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'denied'
+    );
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const profileMenuRef = useRef(null);
+
+    const playNotificationSound = () => {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+            osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.15, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.35);
+        } catch (e) {}
+    };
+
+    const triggerSystemNotification = (notice) => {
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            try {
+                const notif = new Notification(`A.P. Coaching: ${notice.title}`, {
+                    body: notice.content ? notice.content.substring(0, 100) : 'Tap to read new announcement',
+                    icon: '/logo.jpeg',
+                    badge: '/logo.jpeg',
+                    tag: notice.id
+                });
+                notif.onclick = () => {
+                    window.focus();
+                    setActiveTab('notices');
+                };
+            } catch (e) {
+                console.warn('System notification error:', e);
+            }
+        }
+    };
+
+    const requestNotificationPermission = async () => {
+        if (!('Notification' in window)) return;
+        try {
+            const perm = await Notification.requestPermission();
+            setNotificationPermission(perm);
+            if (perm === 'granted') {
+                playNotificationSound();
+            }
+        } catch (e) {}
+    };
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -70,22 +123,6 @@ const StudentDashboard = () => {
             window.addEventListener('keydown', disableShortcuts);
         }
 
-        // Fetch unread notifications count
-        const fetchUnread = async () => {
-            try {
-                const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/notifications/unread', {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setUnreadCount(data.count);
-                }
-            } catch (err) {
-                console.error(err);
-            }
-        };
-        fetchUnread();
-
         return () => {
             if (import.meta.env.PROD) {
                 window.removeEventListener('contextmenu', disableContextMenu);
@@ -94,8 +131,97 @@ const StudentDashboard = () => {
         };
     }, []);
 
+    // Real-time periodic notification check
+    useEffect(() => {
+        let isMounted = true;
+
+        const checkNotifications = async () => {
+            try {
+                const lastSeen = localStorage.getItem('last_seen_notice_time') || '';
+                const query = lastSeen ? `?lastSeen=${encodeURIComponent(lastSeen)}` : '';
+                const backendUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                    ? 'http://localhost:5000'
+                    : (import.meta.env.VITE_BACKEND_URL || '');
+
+                const res = await fetch(backendUrl + '/api/notifications/unread' + query, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+
+                if (res.ok && isMounted) {
+                    const data = await res.json();
+                    setUnreadCount(data.count || 0);
+
+                    if (data.latestNotice) {
+                        const lastNotifiedId = localStorage.getItem('last_notified_notice_id');
+                        if (data.latestNotice.id !== lastNotifiedId) {
+                            localStorage.setItem('last_notified_notice_id', data.latestNotice.id);
+                            setActiveToast(data.latestNotice);
+                            playNotificationSound();
+                            triggerSystemNotification(data.latestNotice);
+                        }
+                    }
+                }
+            } catch (err) {
+                // Ignore transient errors
+            }
+        };
+
+        checkNotifications();
+        const interval = setInterval(checkNotifications, 10000); // Check every 10 seconds
+
+        const handleVisibilityChange = () => {
+            if (!document.hidden) checkNotifications();
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, []);
+
+    // Auto-dismiss in-app toast after 8 seconds
+    useEffect(() => {
+        if (activeToast) {
+            const timer = setTimeout(() => setActiveToast(null), 8000);
+            return () => clearTimeout(timer);
+        }
+    }, [activeToast]);
+
     return (
         <div className={styles.dashboardContainer}>
+            {/* Real-time Notification Toast Banner */}
+            {activeToast && (
+                <div className={styles.notificationToast}>
+                    <div className={styles.toastIcon}>📢</div>
+                    <div className={styles.toastBody}>
+                        <div className={styles.toastTitle}>{activeToast.title}</div>
+                        <div className={styles.toastContent}>{activeToast.content}</div>
+                        <div className={styles.toastActions}>
+                            <button 
+                                onClick={() => { 
+                                    setActiveTab('notices'); 
+                                    setUnreadCount(0);
+                                    localStorage.setItem('last_seen_notice_time', new Date().toISOString());
+                                    setActiveToast(null); 
+                                }} 
+                                className={styles.toastViewBtn}
+                            >
+                                View Notice
+                            </button>
+                            <button 
+                                onClick={() => setActiveToast(null)} 
+                                className={styles.toastCloseBtn} 
+                                aria-label="Close"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Dynamic Watermark to trace screenshots */}
             <div className={styles.watermark}>{user?.email}</div>
 
@@ -166,19 +292,35 @@ const StudentDashboard = () => {
                             {activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')}
                         </h2>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginLeft: 'auto' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginLeft: 'auto' }}>
+                        {notificationPermission === 'default' && (
+                            <button 
+                                onClick={requestNotificationPermission}
+                                className={styles.enableNotifBtn}
+                                title="Click to get notifications when your teacher posts updates"
+                            >
+                                <span>🔔</span>
+                                <span style={{ display: isMobile ? 'none' : 'inline' }}>Enable Alerts</span>
+                            </button>
+                        )}
                         <div 
                             style={{ position: 'relative', cursor: 'pointer' }} 
-                            onClick={() => setActiveTab('notices')}
+                            onClick={() => {
+                                setActiveTab('notices');
+                                setUnreadCount(0);
+                                localStorage.setItem('last_seen_notice_time', new Date().toISOString());
+                                setActiveToast(null);
+                            }}
                             title="Notifications"
                         >
-                            <span style={{ fontSize: '1.25rem' }}>🔔</span>
+                            <span style={{ fontSize: '1.3rem' }}>🔔</span>
                             {unreadCount > 0 && (
                                 <span style={{
                                     position: 'absolute', top: '-5px', right: '-5px',
                                     backgroundColor: '#ef4444', color: '#fff', fontSize: '0.65rem',
-                                    fontWeight: 'bold', width: '16px', height: '16px',
-                                    borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                    fontWeight: 'bold', width: '18px', height: '18px',
+                                    borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxShadow: '0 0 8px rgba(239, 68, 68, 0.6)'
                                 }}>
                                     {unreadCount}
                                 </span>
