@@ -150,8 +150,8 @@ const NotesTab = () => {
             return;
         }
 
-        if (file.size > 25 * 1024 * 1024) {
-            setStatus({ type: 'error', message: `File is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). Maximum allowed size is 25 MB.` });
+        if (file.size > 20 * 1024 * 1024) {
+            setStatus({ type: 'error', message: `File is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). Maximum allowed size is 20 MB. Please compress your PDF.` });
             return;
         }
 

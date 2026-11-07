@@ -46,8 +46,8 @@ app.get('/', (req, res) => {
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// Helper function to upload file to Supabase Storage
-async function uploadToSupabase(file, bucketName) {
+// Helper function to upload file to Supabase Storage with auto-retry
+async function uploadToSupabase(file, bucketName, maxRetries = 2) {
     const ext = path.extname(file.originalname || '').toLowerCase() || '.pdf';
     const rawBase = path.basename(file.originalname || 'file', ext);
     // Sanitize: allow only safe alphanumeric, underscore, hyphen
@@ -57,19 +57,33 @@ async function uploadToSupabase(file, bucketName) {
         .slice(0, 40);
     const fileName = `${Date.now()}_${safeBase || 'note'}${ext}`;
 
-    const { data, error } = await supabase.storage
-        .from(bucketName)
-        .upload(fileName, file.buffer, {
-            contentType: file.mimetype || 'application/pdf',
-            upsert: false
-        });
-    if (error) {
-        console.error(`Supabase storage error in [${bucketName}]:`, error);
-        throw new Error(error.message || 'File upload to cloud storage failed');
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const { data, error } = await supabase.storage
+                .from(bucketName)
+                .upload(fileName, file.buffer, {
+                    contentType: file.mimetype || 'application/pdf',
+                    upsert: true
+                });
+
+            if (error) {
+                if (error.statusCode === '413' || error.message?.includes('exceeded the maximum allowed size')) {
+                    throw new Error('File exceeds the 20 MB cloud storage limit. Please compress your PDF below 20 MB.');
+                }
+                throw new Error(error.message || 'File upload to cloud storage failed');
+            }
+            
+            const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
+            return publicUrlData.publicUrl;
+        } catch (err) {
+            console.error(`Upload to [${bucketName}] attempt ${attempt} failed:`, err.message);
+            if (attempt === maxRetries || err.message?.includes('20 MB')) {
+                throw err;
+            }
+            // Wait 1 second before retrying transient network errors like ECONNRESET
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
     }
-    
-    const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
-    return publicUrlData.publicUrl;
 }
 
 // --- Authentication Routes ---
