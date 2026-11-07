@@ -38,6 +38,8 @@ CREATE TABLE notes (
     title VARCHAR(255) NOT NULL,
     description TEXT,
     file_url TEXT NOT NULL,
+    class_name VARCHAR(50) DEFAULT 'General',
+    subject VARCHAR(100) DEFAULT 'General Notes',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_by UUID REFERENCES users(id)
 );

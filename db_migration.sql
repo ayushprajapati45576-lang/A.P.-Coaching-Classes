@@ -45,4 +45,14 @@ CREATE TABLE IF NOT EXISTS payments (
 
 CREATE INDEX IF NOT EXISTS idx_payments_student_id ON payments(student_id);
 
+-- ========================================================
+-- MIGRATION: Add class_name and subject to notes table
+-- ========================================================
+
+ALTER TABLE notes 
+ADD COLUMN IF NOT EXISTS class_name VARCHAR(50) DEFAULT 'General',
+ADD COLUMN IF NOT EXISTS subject VARCHAR(100) DEFAULT 'General Notes';
+
+CREATE INDEX IF NOT EXISTS idx_notes_class_subject ON notes(class_name, subject);
+
 -- Run these queries in your Supabase SQL Editor.

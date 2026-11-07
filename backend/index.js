@@ -315,10 +315,20 @@ app.post('/api/notes', authenticateToken, requireRole('teacher'), upload.single(
         const fileUrl = await uploadToSupabase(file, 'notes');
         const noteId = crypto.randomUUID();
         
-        await supabase.from('notes').insert({ 
-            id: noteId, title, description, file_url: fileUrl, 
-            class_name: class_name || 'General', subject: subject || 'General', created_by: req.user.id 
+        const { error: insertError } = await supabase.from('notes').insert({ 
+            id: noteId, 
+            title: title || 'Untitled Note', 
+            description: description || '', 
+            file_url: fileUrl, 
+            class_name: class_name || 'General', 
+            subject: subject || 'General Notes', 
+            created_by: req.user.id 
         });
+        
+        if (insertError) {
+            console.error("Supabase notes insert error:", insertError);
+            return res.status(500).json({ error: `Database error: ${insertError.message}` });
+        }
         
         const { data: noteData } = await supabase.from('notes').select('*').eq('id', noteId).maybeSingle();
         res.status(201).json({ message: "Note uploaded successfully", note: noteData });
