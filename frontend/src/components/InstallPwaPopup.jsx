@@ -3,40 +3,35 @@ import React, { useState, useEffect } from 'react';
 const InstallPwaPopup = () => {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
-  const [isIosPrompt, setIsIosPrompt] = useState(false);
 
   useEffect(() => {
+    // Explicitly block iOS / iPhone - do not show install prompt on iOS devices
+    const isIos = () => {
+      if (typeof window === 'undefined') return false;
+      const userAgent = window.navigator.userAgent.toLowerCase();
+      return /iphone|ipad|ipod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    };
+
+    if (isIos()) {
+      return; // Do nothing on iOS
+    }
+
     const handleBeforeInstallPrompt = (e) => {
-      // Prevent the mini-infobar from appearing on mobile
+      // Prevent the default mini-infobar
       e.preventDefault();
       // Stash the event so it can be triggered later.
       setDeferredPrompt(e);
-      // Update UI notify the user they can install the PWA
-      // Add a slight delay so it doesn't pop up instantly on fast load
+      // Show install popup for Android / supported devices
       setTimeout(() => setShowPopup(true), 2000);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-    // If the app is already installed, we shouldn't show it
+    // If the app is already installed, hide popup
     window.addEventListener('appinstalled', () => {
       setShowPopup(false);
       setDeferredPrompt(null);
     });
-
-    // iOS Detection
-    const isIos = () => {
-      const userAgent = window.navigator.userAgent.toLowerCase();
-      return /iphone|ipad|ipod/.test(userAgent);
-    };
-    
-    // Check if already installed on iOS
-    const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone);
-
-    if (isIos() && !isInStandaloneMode()) {
-      setIsIosPrompt(true);
-      setTimeout(() => setShowPopup(true), 2000);
-    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -46,13 +41,13 @@ const InstallPwaPopup = () => {
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
     
-    // Show the install prompt
+    // Show the native install prompt on Android
     deferredPrompt.prompt();
     
     // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice;
+    await deferredPrompt.userChoice;
     
-    // We no longer need the prompt. Clear it up.
+    // Clear prompt and close popup
     setDeferredPrompt(null);
     setShowPopup(false);
   };
@@ -75,19 +70,13 @@ const InstallPwaPopup = () => {
           <img src="/logo.jpeg" alt="App Logo" style={styles.logo} />
           <div>
             <h3 style={styles.title}>Install A.P COACHING CLASSES</h3>
-            <p style={styles.text}>Install our app on your device for quick access and a better experience!</p>
+            <p style={styles.text}>Install our app on your Android device for quick access and a better experience!</p>
           </div>
         </div>
         <div style={styles.actions}>
-          {isIosPrompt ? (
-            <div style={styles.iosInstruction}>
-              Tap the <strong>Share</strong> icon <span style={{ fontSize: '20px', verticalAlign: 'middle' }}>⍐</span> below and select <strong>Add to Home Screen</strong> <span style={{ fontSize: '20px', verticalAlign: 'middle' }}>➕</span>.
-            </div>
-          ) : (
-            <button style={styles.installBtn} onClick={handleInstallClick}>
-              Install App
-            </button>
-          )}
+          <button style={styles.installBtn} onClick={handleInstallClick}>
+            Install App
+          </button>
         </div>
       </div>
     </div>
@@ -106,7 +95,7 @@ const styles = {
     padding: '0 20px',
   },
   popup: {
-    backgroundColor: '#0A2342', // Matching theme color
+    backgroundColor: '#0A2342',
     color: '#ffffff',
     padding: '20px',
     borderRadius: '16px',
@@ -118,72 +107,56 @@ const styles = {
   },
   closeBtn: {
     position: 'absolute',
-    top: '-12px',
-    right: '-12px',
-    background: '#1a365d',
-    border: '2px solid #ffffff',
-    color: '#ffffff',
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
+    top: '12px',
+    right: '12px',
+    background: 'transparent',
+    border: 'none',
+    color: '#94a3b8',
+    cursor: 'pointer',
+    padding: '4px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    cursor: 'pointer',
-    padding: '0',
-    transition: 'transform 0.2s, background 0.2s',
-    zIndex: 10,
-    boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
   },
   content: {
     display: 'flex',
     alignItems: 'center',
-    gap: '15px',
-    marginBottom: '15px',
+    gap: '16px',
+    marginBottom: '16px',
   },
   logo: {
-    width: '50px',
-    height: '50px',
-    borderRadius: '10px',
+    width: '48px',
+    height: '48px',
+    borderRadius: '12px',
     objectFit: 'cover',
   },
   title: {
-    margin: '0 0 5px 0',
-    fontSize: '16px',
+    margin: '0 0 4px 0',
+    fontSize: '1rem',
     fontWeight: '600',
   },
   text: {
-    margin: '0',
-    fontSize: '13px',
-    color: 'rgba(255,255,255,0.8)',
+    margin: 0,
+    fontSize: '0.85rem',
+    color: '#cbd5e1',
     lineHeight: '1.4',
   },
   actions: {
     display: 'flex',
-    justifyContent: 'stretch',
+    justifyContent: 'flex-end',
   },
   installBtn: {
-    flex: 1,
-    padding: '10px',
-    backgroundColor: '#FF7B00', // Primary color
-    color: 'white',
+    backgroundColor: 'var(--color-primary, #ff7b00)',
+    color: '#ffffff',
     border: 'none',
+    padding: '8px 16px',
     borderRadius: '8px',
     fontWeight: '600',
-    fontSize: '14px',
+    fontSize: '0.9rem',
     cursor: 'pointer',
-    transition: 'background 0.2s',
-  },
-  iosInstruction: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    padding: '12px',
-    borderRadius: '8px',
-    fontSize: '14px',
-    color: '#ffffff',
-    lineHeight: '1.5',
-    textAlign: 'center',
     width: '100%',
-  }
+    transition: 'background-color 0.2s',
+  },
 };
 
 export default InstallPwaPopup;
