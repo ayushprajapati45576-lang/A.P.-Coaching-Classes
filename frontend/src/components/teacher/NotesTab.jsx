@@ -150,6 +150,11 @@ const NotesTab = () => {
             return;
         }
 
+        if (file.size > 25 * 1024 * 1024) {
+            setStatus({ type: 'error', message: `File is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). Maximum allowed size is 25 MB.` });
+            return;
+        }
+
         setStatus({ type: 'loading', message: 'Uploading note to server...' });
 
         const formData = new FormData();

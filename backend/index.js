@@ -48,14 +48,25 @@ const upload = multer({ storage: storage });
 
 // Helper function to upload file to Supabase Storage
 async function uploadToSupabase(file, bucketName) {
-    const fileName = `${Date.now()}_${file.originalname.replace(/\s+/g, '_')}`;
+    const ext = path.extname(file.originalname || '').toLowerCase() || '.pdf';
+    const rawBase = path.basename(file.originalname || 'file', ext);
+    // Sanitize: allow only safe alphanumeric, underscore, hyphen
+    const safeBase = rawBase
+        .replace(/[^a-zA-Z0-9_-]/g, '_')
+        .replace(/_+/g, '_')
+        .slice(0, 40);
+    const fileName = `${Date.now()}_${safeBase || 'note'}${ext}`;
+
     const { data, error } = await supabase.storage
         .from(bucketName)
         .upload(fileName, file.buffer, {
-            contentType: file.mimetype,
+            contentType: file.mimetype || 'application/pdf',
             upsert: false
         });
-    if (error) throw error;
+    if (error) {
+        console.error(`Supabase storage error in [${bucketName}]:`, error);
+        throw new Error(error.message || 'File upload to cloud storage failed');
+    }
     
     const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
     return publicUrlData.publicUrl;
@@ -100,8 +111,8 @@ app.post('/api/auth/login', async (req, res) => {
 
         res.json({ token, role: user.role, email: user.email, id: user.id, class_name: className, full_name: fullName });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error in POST /api/notes:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
@@ -221,8 +232,8 @@ app.get('/api/students', authenticateToken, requireRole('teacher'), async (req, 
         }));
         res.json(formatted);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error in POST /api/notes:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
@@ -333,8 +344,8 @@ app.post('/api/notes', authenticateToken, requireRole('teacher'), upload.single(
         const { data: noteData } = await supabase.from('notes').select('*').eq('id', noteId).maybeSingle();
         res.status(201).json({ message: "Note uploaded successfully", note: noteData });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error in POST /api/notes:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
@@ -389,8 +400,8 @@ app.post('/api/books', authenticateToken, requireRole('teacher'), upload.fields(
         const { data: bookData } = await supabase.from('books').select('*').eq('id', bookId).maybeSingle();
         res.status(201).json({ message: "Book uploaded successfully", book: bookData });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error in POST /api/notes:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
@@ -674,8 +685,8 @@ app.get('/api/results', authenticateToken, requireRole('teacher'), async (req, r
 
         res.json(processedData);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error in POST /api/notes:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
@@ -796,8 +807,8 @@ app.get('/api/payments', authenticateToken, requireRole('teacher'), async (req, 
 
         res.json(formatted);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error in POST /api/notes:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
@@ -893,8 +904,8 @@ app.put('/api/students/:id/fees', authenticateToken, requireRole('teacher'), asy
 
         res.json({ message: "Fees updated successfully" });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error in POST /api/notes:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
@@ -974,8 +985,8 @@ app.post('/api/payments', authenticateToken, requireRole('teacher'), async (req,
 
         res.status(201).json({ message: "Payment recorded successfully", payment: newPayment });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error in POST /api/notes:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
@@ -1065,8 +1076,8 @@ app.put('/api/payments/:id', authenticateToken, requireRole('teacher'), async (r
 
         res.json({ message: "Payment updated successfully" });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error in POST /api/notes:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
@@ -1077,8 +1088,8 @@ app.delete('/api/payments/:id', authenticateToken, requireRole('teacher'), async
         if (error) throw error;
         res.json({ message: "Payment deleted successfully" });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error in POST /api/notes:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
@@ -1129,8 +1140,8 @@ app.post('/api/quizzes', authenticateToken, requireRole('teacher'), async (req, 
         }
         res.status(201).json({ message: "Quiz created successfully", quizId });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error in POST /api/notes:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
@@ -1176,8 +1187,8 @@ app.post('/api/quizzes/:id/submit', authenticateToken, async (req, res) => {
         
         res.json({ score, total_marks, message: "Quiz submitted successfully" });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error in POST /api/notes:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
@@ -1226,8 +1237,8 @@ app.get('/api/dashboard/stats', authenticateToken, requireRole('teacher'), async
             latestExamAverage: 'N/A'
         });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error in POST /api/notes:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
