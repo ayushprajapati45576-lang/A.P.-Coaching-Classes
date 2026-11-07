@@ -6,7 +6,6 @@ import Register from './pages/Register';
 import TeacherDashboard from './pages/TeacherDashboard';
 import StudentDashboard from './pages/StudentDashboard';
 import Home from './pages/Home';
-import InstallPwaPopup from './components/InstallPwaPopup';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user } = useAuth();
@@ -58,7 +57,6 @@ function App() {
     <Router>
       <AuthProvider>
         <AppRoutes />
-        <InstallPwaPopup />
       </AuthProvider>
     </Router>
   );
