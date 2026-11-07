@@ -13,6 +13,32 @@ const CLASS_SUBJECTS = {
     'General': ['General Notes', 'Important Material', 'Sample Papers']
 };
 
+// Distinct colors and emojis for subjects
+const SUBJECT_META = {
+    'Maths': { emoji: '📐', color: '#60a5fa' },
+    'Mathematics': { emoji: '📐', color: '#60a5fa' },
+    'Science': { emoji: '🔬', color: '#34d399' },
+    'Physics': { emoji: '⚡', color: '#a78bfa' },
+    'Chemistry': { emoji: '🧪', color: '#f43f5e' },
+    'Biology': { emoji: '🧬', color: '#10b981' },
+    'Social Science': { emoji: '🌍', color: '#fb923c' },
+    'English': { emoji: '📖', color: '#38bdf8' },
+    'Hindi': { emoji: '📙', color: '#f59e0b' },
+    'Sanskrit': { emoji: '📜', color: '#c084fc' },
+    'Accountancy': { emoji: '📊', color: '#2dd4bf' },
+    'Business Studies': { emoji: '💼', color: '#818cf8' },
+    'Economics': { emoji: '📈', color: '#fbbf24' },
+    'Computer Science': { emoji: '💻', color: '#06b6d4' },
+    'Physical Education': { emoji: '🏃', color: '#e879f9' },
+    'General Notes': { emoji: '📚', color: '#f472b6' },
+    'Important Material': { emoji: '⭐', color: '#eab308' },
+    'Sample Papers': { emoji: '📝', color: '#a855f7' }
+};
+
+const getSubjectMeta = (sub) => {
+    return SUBJECT_META[sub] || { emoji: '📁', color: '#fbbf24' };
+};
+
 // Smart backend URL: auto-detects localhost to prevent calling old production Vercel
 const getBackendUrl = () => {
     if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
@@ -24,7 +50,7 @@ const getBackendUrl = () => {
 const NotesTab = () => {
     const [view, setView] = useState('list'); // 'list' or 'add'
     
-    // Navigation State
+    // Navigation State (Hierarchy: Level 1 Class -> Level 2 Subject -> Level 3 Notes)
     const [activeClass, setActiveClass] = useState(null); // '6', '7', '8', '9', '10', '11', '12', 'General'
     const [activeSubject, setActiveSubject] = useState(null); // e.g., 'Maths', 'Science'
 
@@ -36,7 +62,7 @@ const NotesTab = () => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [className, setClassName] = useState('10');
-    const [subject, setSubject] = useState('Maths'); // Initialized with valid subject
+    const [subject, setSubject] = useState('Maths');
     const [isCustomSubject, setIsCustomSubject] = useState(false);
     const [customSubject, setCustomSubject] = useState('');
     const [file, setFile] = useState(null);
@@ -90,7 +116,6 @@ const NotesTab = () => {
 
         const finalSubject = (isCustomSubject ? customSubject : subject)?.trim();
 
-        // Specific validations with clear error messages
         if (!title.trim()) {
             setStatus({ type: 'error', message: 'Please enter a note title' });
             return;
@@ -132,7 +157,10 @@ const NotesTab = () => {
                 setIsCustomSubject(false);
                 setCustomSubject('');
                 fetchNotes();
-                setTimeout(() => setView('list'), 1200);
+                // Stay on the class and subject folder where the note was uploaded
+                setActiveClass(className);
+                setActiveSubject(finalSubject);
+                setTimeout(() => setView('list'), 1000);
             } else {
                 setStatus({ type: 'error', message: data.error || 'Failed to upload note' });
             }
@@ -154,32 +182,59 @@ const NotesTab = () => {
         setView('add');
     };
 
-    const FolderCard = ({ title, count, onClick, color, emoji = '📁' }) => (
+    const FolderCard = ({ title, count, onClick, color, emoji = '📁', isAddCard = false }) => (
         <div onClick={onClick} style={{
-            background: `linear-gradient(135deg, var(--color-border) 0%, var(--color-surface-hover) 100%)`,
-            border: `1px solid ${color}`,
+            background: isAddCard 
+                ? 'rgba(255, 255, 255, 0.03)'
+                : `linear-gradient(135deg, var(--color-border) 0%, var(--color-surface-hover) 100%)`,
+            border: isAddCard ? `2px dashed ${color}` : `1px solid ${color}`,
             borderRadius: '12px',
-            padding: '2rem',
+            padding: '1.75rem 1.25rem',
             cursor: 'pointer',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             transition: 'transform 0.2s, box-shadow 0.2s',
-            boxShadow: `0 4px 20px ${color}20`
+            boxShadow: isAddCard ? 'none' : `0 4px 20px ${color}15`,
+            position: 'relative'
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = `0 8px 25px ${color}40`; }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 20px ${color}20`; }}
+        onMouseEnter={(e) => { 
+            e.currentTarget.style.transform = 'translateY(-5px)'; 
+            e.currentTarget.style.boxShadow = `0 8px 25px ${color}35`; 
+        }}
+        onMouseLeave={(e) => { 
+            e.currentTarget.style.transform = 'translateY(0)'; 
+            e.currentTarget.style.boxShadow = isAddCard ? 'none' : `0 4px 20px ${color}15`; 
+        }}
         >
-            <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>{emoji}</div>
-            <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--color-text-main)', fontSize: '1.4rem', fontWeight: '500' }}>{title}</h3>
-            {count !== undefined && <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>{count} Items</p>}
+            <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>{emoji}</div>
+            <h3 style={{ margin: '0 0 0.4rem 0', color: 'var(--color-text-main)', fontSize: '1.25rem', fontWeight: '600', textAlign: 'center' }}>
+                {title}
+            </h3>
+            {count !== undefined && (
+                <span style={{ 
+                    fontSize: '0.85rem', 
+                    color: count > 0 ? '#10b981' : 'var(--color-text-muted)',
+                    fontWeight: count > 0 ? '600' : '400',
+                    background: count > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                    padding: '2px 10px',
+                    borderRadius: '12px'
+                }}>
+                    {count} {count === 1 ? 'Note' : 'Notes'}
+                </span>
+            )}
         </div>
     );
 
     if (view === 'list') {
         const filteredByClass = activeClass ? notes.filter(n => n.class_name === activeClass) : [];
-        const uniqueSubjects = [...new Set(filteredByClass.map(n => n.subject))].filter(Boolean);
+        
+        // Subject Folders for the selected class: combine predefined subjects + any custom uploaded subjects
+        const defaultSubjects = activeClass ? (CLASS_SUBJECTS[activeClass] || ['General Notes']) : [];
+        const uploadedSubjects = activeClass ? [...new Set(filteredByClass.map(n => n.subject))].filter(Boolean) : [];
+        const allSubjectsForClass = [...new Set([...defaultSubjects, ...uploadedSubjects])];
+
         const filteredBySubject = activeSubject ? filteredByClass.filter(n => n.subject === activeSubject) : [];
 
         return (
@@ -188,111 +243,203 @@ const NotesTab = () => {
                     <h2 style={{ color: 'var(--color-text-main)', margin: 0, fontSize: '1.8rem', fontWeight: '300' }}>
                         {activeSubject ? (
                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <button onClick={() => setActiveSubject(null)} style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '1.5rem', padding: 0 }}>←</button>
-                                {['6', '7', '8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass}` : activeClass} / {activeSubject}
+                                <button 
+                                    onClick={() => setActiveSubject(null)} 
+                                    title="Back to Subjects"
+                                    style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '1.5rem', padding: '0 0.5rem 0 0' }}
+                                >
+                                    ←
+                                </button>
+                                {['6', '7', '8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass}` : activeClass} / <span style={{ color: 'var(--color-primary)', fontWeight: '600' }}>{activeSubject}</span>
                             </span>
                         ) : activeClass ? (
                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <button onClick={() => setActiveClass(null)} style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '1.5rem', padding: 0 }}>←</button>
-                                {['6', '7', '8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass}` : activeClass} Subjects
+                                <button 
+                                    onClick={() => setActiveClass(null)} 
+                                    title="Back to All Classes"
+                                    style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '1.5rem', padding: '0 0.5rem 0 0' }}
+                                >
+                                    ←
+                                </button>
+                                {['6', '7', '8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass}` : activeClass} Subject Folders
                             </span>
                         ) : (
-                            'Study Notes Folders'
+                            'Study Notes — All Classes'
                         )}
                     </h2>
                     
-                    <button onClick={handleUploadClick} className={styles.submitBtn} style={{ margin: 0, padding: '0.6rem 1.2rem', borderRadius: '6px' }}>
-                        + Upload Note
+                    <button onClick={handleUploadClick} className={styles.submitBtn} style={{ margin: 0, padding: '0.6rem 1.4rem', borderRadius: '6px' }}>
+                        {activeSubject ? `+ Upload to ${activeSubject}` : '+ Upload Note'}
                     </button>
                 </div>
 
                 {loading ? <p style={{ color: 'var(--color-text-muted)' }}>Loading notes...</p> : (
                     <>
-                        {/* Level 1: Classes */}
+                        {/* ======================================================== */}
+                        {/* LEVEL 1: ALL CLASS FOLDERS                               */}
+                        {/* ======================================================== */}
                         {!activeClass && (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
-                                <FolderCard title="Class 6" count={notes.filter(n => n.class_name === '6').length} onClick={() => setActiveClass('6')} color="#ec4899" emoji="📖" />
-                                <FolderCard title="Class 7" count={notes.filter(n => n.class_name === '7').length} onClick={() => setActiveClass('7')} color="#8b5cf6" emoji="📙" />
-                                <FolderCard title="Class 8" count={notes.filter(n => n.class_name === '8').length} onClick={() => setActiveClass('8')} color="#a78bfa" emoji="📐" />
-                                <FolderCard title="Class 9" count={notes.filter(n => n.class_name === '9').length} onClick={() => setActiveClass('9')} color="#fb923c" emoji="🔬" />
-                                <FolderCard title="Class 10" count={notes.filter(n => n.class_name === '10').length} onClick={() => setActiveClass('10')} color="#60a5fa" emoji="🎒" />
-                                <FolderCard title="Class 11" count={notes.filter(n => n.class_name === '11').length} onClick={() => setActiveClass('11')} color="#fcd34d" emoji="🏫" />
-                                <FolderCard title="Class 12" count={notes.filter(n => n.class_name === '12').length} onClick={() => setActiveClass('12')} color="#34d399" emoji="🎓" />
-                                <FolderCard title="General" count={notes.filter(n => n.class_name === 'General').length} onClick={() => setActiveClass('General')} color="#f472b6" emoji="📚" />
+                            <div>
+                                <p style={{ color: 'var(--color-text-muted)', marginBottom: '1.5rem' }}>
+                                    Select a class to view its subject folders and uploaded study material:
+                                </p>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                                    <FolderCard title="Class 6" count={notes.filter(n => n.class_name === '6').length} onClick={() => setActiveClass('6')} color="#ec4899" emoji="📖" />
+                                    <FolderCard title="Class 7" count={notes.filter(n => n.class_name === '7').length} onClick={() => setActiveClass('7')} color="#8b5cf6" emoji="📙" />
+                                    <FolderCard title="Class 8" count={notes.filter(n => n.class_name === '8').length} onClick={() => setActiveClass('8')} color="#a78bfa" emoji="📐" />
+                                    <FolderCard title="Class 9" count={notes.filter(n => n.class_name === '9').length} onClick={() => setActiveClass('9')} color="#fb923c" emoji="🔬" />
+                                    <FolderCard title="Class 10" count={notes.filter(n => n.class_name === '10').length} onClick={() => setActiveClass('10')} color="#60a5fa" emoji="🎒" />
+                                    <FolderCard title="Class 11" count={notes.filter(n => n.class_name === '11').length} onClick={() => setActiveClass('11')} color="#fcd34d" emoji="🏫" />
+                                    <FolderCard title="Class 12" count={notes.filter(n => n.class_name === '12').length} onClick={() => setActiveClass('12')} color="#34d399" emoji="🎓" />
+                                    <FolderCard title="General" count={notes.filter(n => n.class_name === 'General').length} onClick={() => setActiveClass('General')} color="#f472b6" emoji="📚" />
+                                </div>
                             </div>
                         )}
 
-                        {/* Level 2: Subjects */}
+                        {/* ======================================================== */}
+                        {/* LEVEL 2: SUBJECT FOLDERS INSIDE SELECTED CLASS           */}
+                        {/* ======================================================== */}
                         {activeClass && !activeSubject && (
-                            uniqueSubjects.length === 0 ? (
-                                <div>
-                                    <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-                                        No notes found yet in {['6', '7', '8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass}` : activeClass}.
-                                    </p>
-                                    <button onClick={handleUploadClick} className={styles.submitBtn} style={{ padding: '0.6rem 1.2rem', borderRadius: '6px' }}>
-                                        + Upload First Note
-                                    </button>
-                                </div>
-                            ) : (
+                            <div>
+                                <p style={{ color: 'var(--color-text-muted)', marginBottom: '1.5rem' }}>
+                                    Click on a subject to open its notes, or upload a note directly:
+                                </p>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
-                                    {uniqueSubjects.map(sub => (
-                                        <FolderCard key={sub} title={sub} count={filteredByClass.filter(n => n.subject === sub).length} onClick={() => setActiveSubject(sub)} color="#fbbf24" emoji="📘" />
-                                    ))}
+                                    {allSubjectsForClass.map(sub => {
+                                        const meta = getSubjectMeta(sub);
+                                        const count = filteredByClass.filter(n => n.subject === sub).length;
+                                        return (
+                                            <FolderCard 
+                                                key={sub} 
+                                                title={sub} 
+                                                count={count} 
+                                                onClick={() => setActiveSubject(sub)} 
+                                                color={meta.color} 
+                                                emoji={meta.emoji} 
+                                            />
+                                        );
+                                    })}
+                                    {/* Add Custom Subject Button */}
+                                    <FolderCard 
+                                        title="+ Other Subject" 
+                                        onClick={() => {
+                                            setIsCustomSubject(true);
+                                            setCustomSubject('');
+                                            setSubject('');
+                                            setClassName(activeClass);
+                                            setView('add');
+                                        }}
+                                        color="var(--color-primary)" 
+                                        emoji="➕" 
+                                        isAddCard={true}
+                                    />
                                 </div>
-                            )
+                            </div>
                         )}
 
-                        {/* Level 3: Notes List */}
+                        {/* ======================================================== */}
+                        {/* LEVEL 3: NOTES LIST INSIDE SELECTED SUBJECT              */}
+                        {/* ======================================================== */}
                         {activeSubject && (
-                            filteredBySubject.length === 0 ? <p style={{ color: 'var(--color-text-muted)' }}>No notes in this subject.</p> :
-                            <div style={{ overflowX: 'auto', background: 'var(--color-surface-hover)', borderRadius: '8px', padding: '1rem' }}>
-                                <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                                    <thead>
-                                        <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                            <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Title</th>
-                                            <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Description</th>
-                                            <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Date</th>
-                                            <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredBySubject.map((n) => (
-                                            <tr key={n.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                                <td style={{ 
-                                                    padding: '0.75rem', 
-                                                    background: 'linear-gradient(135deg, #f43f5e 0%, #fb923c 100%)', 
-                                                    WebkitBackgroundClip: 'text',
-                                                    WebkitTextFillColor: 'transparent',
-                                                    fontWeight: '700',
-                                                    letterSpacing: '0.5px'
-                                                }}>{n.title}</td>
-                                                <td style={{ padding: '0.75rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.description || '-'}</td>
-                                                <td style={{ padding: '0.75rem', fontSize: '0.9rem' }}>{new Date(n.created_at).toLocaleDateString()}</td>
-                                                <td style={{ padding: '0.75rem' }}>
-                                                    <a href={n.file_url} target="_blank" rel="noreferrer" style={{ 
-                                                        background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', 
-                                                        color: '#ffffff', 
-                                                        padding: '0.4rem 0.8rem', 
-                                                        borderRadius: '6px', 
-                                                        marginRight: '0.75rem', 
-                                                        textDecoration: 'none', 
-                                                        fontWeight: '500',
-                                                        display: 'inline-block'
-                                                    }}>View</a>
-                                                    <button onClick={() => handleDelete(n.id)} style={{ 
-                                                        background: 'rgba(239, 68, 68, 0.15)', 
-                                                        color: '#ef4444', 
-                                                        border: '1px solid rgba(239, 68, 68, 0.3)', 
-                                                        padding: '0.4rem 0.8rem', 
-                                                        borderRadius: '6px', 
-                                                        cursor: 'pointer', 
-                                                        fontWeight: '500'
-                                                    }}>Delete</button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                                    <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>
+                                        Showing all notes for <strong>{['6', '7', '8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass}` : activeClass} · {activeSubject}</strong>
+                                    </p>
+                                </div>
+
+                                {filteredBySubject.length === 0 ? (
+                                    <div style={{ 
+                                        textAlign: 'center', 
+                                        padding: '3rem 1.5rem', 
+                                        background: 'var(--color-surface-hover)', 
+                                        borderRadius: '12px',
+                                        border: '1px dashed var(--color-border)'
+                                    }}>
+                                        <div style={{ fontSize: '3.5rem', marginBottom: '0.75rem' }}>{getSubjectMeta(activeSubject).emoji}</div>
+                                        <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--color-text-main)', fontSize: '1.3rem' }}>
+                                            No notes uploaded in {activeSubject} yet
+                                        </h3>
+                                        <p style={{ color: 'var(--color-text-muted)', marginBottom: '1.5rem', maxWidth: '400px', margin: '0 auto 1.5rem auto' }}>
+                                            Add the first study material (PDF or image) for your students in {activeSubject}.
+                                        </p>
+                                        <button 
+                                            onClick={handleUploadClick} 
+                                            className={styles.submitBtn} 
+                                            style={{ padding: '0.6rem 1.4rem', borderRadius: '6px' }}
+                                        >
+                                            + Upload Note to {activeSubject}
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div style={{ overflowX: 'auto', background: 'var(--color-surface-hover)', borderRadius: '8px', padding: '1rem' }}>
+                                        <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+                                            <thead>
+                                                <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Title</th>
+                                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Description</th>
+                                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Upload Date</th>
+                                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {filteredBySubject.map((n) => (
+                                                    <tr key={n.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                                        <td style={{ 
+                                                            padding: '0.75rem', 
+                                                            background: 'linear-gradient(135deg, #f43f5e 0%, #fb923c 100%)', 
+                                                            WebkitBackgroundClip: 'text',
+                                                            WebkitTextFillColor: 'transparent',
+                                                            fontWeight: '700',
+                                                            letterSpacing: '0.5px'
+                                                        }}>
+                                                            {n.title}
+                                                        </td>
+                                                        <td style={{ padding: '0.75rem', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {n.description || '-'}
+                                                        </td>
+                                                        <td style={{ padding: '0.75rem', fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
+                                                            {new Date(n.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        </td>
+                                                        <td style={{ padding: '0.75rem' }}>
+                                                            <a 
+                                                                href={n.file_url} 
+                                                                target="_blank" 
+                                                                rel="noreferrer" 
+                                                                style={{ 
+                                                                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', 
+                                                                    color: '#ffffff', 
+                                                                    padding: '0.4rem 0.8rem', 
+                                                                    borderRadius: '6px', 
+                                                                    marginRight: '0.75rem', 
+                                                                    textDecoration: 'none', 
+                                                                    fontWeight: '500',
+                                                                    display: 'inline-block'
+                                                                }}
+                                                            >
+                                                                View
+                                                            </a>
+                                                            <button 
+                                                                onClick={() => handleDelete(n.id)} 
+                                                                style={{ 
+                                                                    background: 'rgba(239, 68, 68, 0.15)', 
+                                                                    color: '#ef4444', 
+                                                                    border: '1px solid rgba(239, 68, 68, 0.3)', 
+                                                                    padding: '0.4rem 0.8rem', 
+                                                                    borderRadius: '6px', 
+                                                                    cursor: 'pointer', 
+                                                                    fontWeight: '500'
+                                                                }}
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </>
@@ -301,10 +448,19 @@ const NotesTab = () => {
         );
     }
 
+    // ========================================================
+    // ADD NOTE VIEW / FORM
+    // ========================================================
     return (
         <div className={`glass-panel ${styles.tabContainer} animate-fade-in`}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-                <h2 style={{ margin: 0 }}>Upload Study Note</h2>
+                <h2 style={{ margin: 0 }}>
+                    {activeSubject 
+                        ? `Upload Note to ${['6', '7', '8', '9', '10', '11', '12'].includes(className) ? `Class ${className}` : className} / ${activeSubject}` 
+                        : activeClass 
+                            ? `Upload Note to ${['6', '7', '8', '9', '10', '11', '12'].includes(className) ? `Class ${className}` : className}` 
+                            : 'Upload Study Note'}
+                </h2>
                 <button onClick={() => setView('list')} className={styles.cancelBtn}>Cancel</button>
             </div>
 
@@ -332,7 +488,7 @@ const NotesTab = () => {
                     </div>
 
                     <div className={styles.inputGroup} style={{ flex: 1, minWidth: '200px', marginBottom: 0 }}>
-                        <label>Subject Folder Name</label>
+                        <label>Subject Folder</label>
                         {!isCustomSubject ? (
                             <select 
                                 required 
