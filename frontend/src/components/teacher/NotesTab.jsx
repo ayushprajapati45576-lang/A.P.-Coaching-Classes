@@ -75,6 +75,27 @@ const NotesTab = () => {
         }
     }, [view]);
 
+    // Handle Browser Back button (popstate) to navigate backwards through folders instead of exiting to dashboard
+    useEffect(() => {
+        const handlePopState = () => {
+            if (view === 'add') {
+                setView('list');
+                return;
+            }
+            if (activeSubject) {
+                setActiveSubject(null);
+                return;
+            }
+            if (activeClass) {
+                setActiveClass(null);
+                return;
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, [view, activeSubject, activeClass]);
+
     const fetchNotes = async () => {
         setLoading(true);
         try {
@@ -179,7 +200,50 @@ const NotesTab = () => {
         setIsCustomSubject(false);
         setCustomSubject('');
         setStatus({ type: '', message: '' });
+
+        try {
+            window.history.pushState({ notesStep: 'add' }, '', window.location.href);
+        } catch (e) {}
+
         setView('add');
+    };
+
+    const handleBackFromAdd = () => {
+        if (window.history.state && window.history.state.notesStep === 'add') {
+            window.history.back();
+        } else {
+            setView('list');
+        }
+    };
+
+    const handleSelectClass = (cls) => {
+        setActiveClass(cls);
+        setActiveSubject(null);
+        try {
+            window.history.pushState({ notesStep: 'class', class: cls }, '', window.location.href);
+        } catch (e) {}
+    };
+
+    const handleBackToClasses = () => {
+        setActiveClass(null);
+        setActiveSubject(null);
+        if (window.history.state && (window.history.state.notesStep === 'class' || window.history.state.notesStep === 'subject')) {
+            try { window.history.back(); } catch (e) {}
+        }
+    };
+
+    const handleSelectSubject = (sub) => {
+        setActiveSubject(sub);
+        try {
+            window.history.pushState({ notesStep: 'subject', subject: sub }, '', window.location.href);
+        } catch (e) {}
+    };
+
+    const handleBackToSubjects = () => {
+        setActiveSubject(null);
+        if (window.history.state && window.history.state.notesStep === 'subject') {
+            try { window.history.back(); } catch (e) {}
+        }
     };
 
     const FolderCard = ({ title, count, onClick, color, emoji = '📁', isAddCard = false }) => (
@@ -244,7 +308,7 @@ const NotesTab = () => {
                         {activeSubject ? (
                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <button 
-                                    onClick={() => setActiveSubject(null)} 
+                                    onClick={handleBackToSubjects} 
                                     title="Back to Subjects"
                                     style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '1.5rem', padding: '0 0.5rem 0 0' }}
                                 >
@@ -255,7 +319,7 @@ const NotesTab = () => {
                         ) : activeClass ? (
                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <button 
-                                    onClick={() => setActiveClass(null)} 
+                                    onClick={handleBackToClasses} 
                                     title="Back to All Classes"
                                     style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '1.5rem', padding: '0 0.5rem 0 0' }}
                                 >
@@ -284,14 +348,14 @@ const NotesTab = () => {
                                     Select a class to view its subject folders and uploaded study material:
                                 </p>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
-                                    <FolderCard title="Class 6" count={notes.filter(n => n.class_name === '6').length} onClick={() => setActiveClass('6')} color="#ec4899" emoji="📖" />
-                                    <FolderCard title="Class 7" count={notes.filter(n => n.class_name === '7').length} onClick={() => setActiveClass('7')} color="#8b5cf6" emoji="📙" />
-                                    <FolderCard title="Class 8" count={notes.filter(n => n.class_name === '8').length} onClick={() => setActiveClass('8')} color="#a78bfa" emoji="📐" />
-                                    <FolderCard title="Class 9" count={notes.filter(n => n.class_name === '9').length} onClick={() => setActiveClass('9')} color="#fb923c" emoji="🔬" />
-                                    <FolderCard title="Class 10" count={notes.filter(n => n.class_name === '10').length} onClick={() => setActiveClass('10')} color="#60a5fa" emoji="🎒" />
-                                    <FolderCard title="Class 11" count={notes.filter(n => n.class_name === '11').length} onClick={() => setActiveClass('11')} color="#fcd34d" emoji="🏫" />
-                                    <FolderCard title="Class 12" count={notes.filter(n => n.class_name === '12').length} onClick={() => setActiveClass('12')} color="#34d399" emoji="🎓" />
-                                    <FolderCard title="General" count={notes.filter(n => n.class_name === 'General').length} onClick={() => setActiveClass('General')} color="#f472b6" emoji="📚" />
+                                    <FolderCard title="Class 6" count={notes.filter(n => n.class_name === '6').length} onClick={() => handleSelectClass('6')} color="#ec4899" emoji="📖" />
+                                    <FolderCard title="Class 7" count={notes.filter(n => n.class_name === '7').length} onClick={() => handleSelectClass('7')} color="#8b5cf6" emoji="📙" />
+                                    <FolderCard title="Class 8" count={notes.filter(n => n.class_name === '8').length} onClick={() => handleSelectClass('8')} color="#a78bfa" emoji="📐" />
+                                    <FolderCard title="Class 9" count={notes.filter(n => n.class_name === '9').length} onClick={() => handleSelectClass('9')} color="#fb923c" emoji="🔬" />
+                                    <FolderCard title="Class 10" count={notes.filter(n => n.class_name === '10').length} onClick={() => handleSelectClass('10')} color="#60a5fa" emoji="🎒" />
+                                    <FolderCard title="Class 11" count={notes.filter(n => n.class_name === '11').length} onClick={() => handleSelectClass('11')} color="#fcd34d" emoji="🏫" />
+                                    <FolderCard title="Class 12" count={notes.filter(n => n.class_name === '12').length} onClick={() => handleSelectClass('12')} color="#34d399" emoji="🎓" />
+                                    <FolderCard title="General" count={notes.filter(n => n.class_name === 'General').length} onClick={() => handleSelectClass('General')} color="#f472b6" emoji="📚" />
                                 </div>
                             </div>
                         )}
@@ -313,7 +377,7 @@ const NotesTab = () => {
                                                 key={sub} 
                                                 title={sub} 
                                                 count={count} 
-                                                onClick={() => setActiveSubject(sub)} 
+                                                onClick={() => handleSelectSubject(sub)} 
                                                 color={meta.color} 
                                                 emoji={meta.emoji} 
                                             />
@@ -327,6 +391,9 @@ const NotesTab = () => {
                                             setCustomSubject('');
                                             setSubject('');
                                             setClassName(activeClass);
+                                            try {
+                                                window.history.pushState({ notesStep: 'add' }, '', window.location.href);
+                                            } catch (e) {}
                                             setView('add');
                                         }}
                                         color="var(--color-primary)" 
@@ -388,7 +455,7 @@ const NotesTab = () => {
                                                         <td style={{ 
                                                             padding: '0.75rem', 
                                                             background: 'linear-gradient(135deg, #f43f5e 0%, #fb923c 100%)', 
-                                                            WebkitBackgroundClip: 'text',
+                                                            WebkitBackgroundClip: 'text', 
                                                             WebkitTextFillColor: 'transparent',
                                                             fontWeight: '700',
                                                             letterSpacing: '0.5px'
@@ -453,15 +520,55 @@ const NotesTab = () => {
     // ========================================================
     return (
         <div className={`glass-panel ${styles.tabContainer} animate-fade-in`}>
+            {/* Header with prominent Back arrow button and Back to Folder button */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-                <h2 style={{ margin: 0 }}>
-                    {activeSubject 
-                        ? `Upload Note to ${['6', '7', '8', '9', '10', '11', '12'].includes(className) ? `Class ${className}` : className} / ${activeSubject}` 
-                        : activeClass 
-                            ? `Upload Note to ${['6', '7', '8', '9', '10', '11', '12'].includes(className) ? `Class ${className}` : className}` 
-                            : 'Upload Study Note'}
-                </h2>
-                <button onClick={() => setView('list')} className={styles.cancelBtn}>Cancel</button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <button 
+                        type="button" 
+                        onClick={handleBackFromAdd} 
+                        title={`Back to ${activeSubject || (activeClass ? 'Class ' + activeClass : 'Notes')}`}
+                        style={{ 
+                            background: 'rgba(255, 255, 255, 0.08)', 
+                            border: '1px solid var(--color-border)', 
+                            color: 'var(--color-primary)', 
+                            cursor: 'pointer', 
+                            fontSize: '1.4rem', 
+                            width: '42px',
+                            height: '42px',
+                            borderRadius: '8px', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            transition: 'all 0.2s ease',
+                            padding: 0
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.16)'; e.currentTarget.style.transform = 'translateX(-2px)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'; e.currentTarget.style.transform = 'translateX(0)'; }}
+                    >
+                        ←
+                    </button>
+                    <div>
+                        <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '500' }}>
+                            {activeSubject 
+                                ? `Upload Note to Class ${className} / ${activeSubject}` 
+                                : activeClass 
+                                    ? `Upload Note to Class ${className}` 
+                                    : 'Upload Study Note'}
+                        </h2>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                            Folder: <strong>{['6', '7', '8', '9', '10', '11', '12'].includes(className) ? `Class ${className}` : className}</strong> {activeSubject && `· ${activeSubject}`}
+                        </span>
+                    </div>
+                </div>
+
+                <button 
+                    type="button" 
+                    onClick={handleBackFromAdd} 
+                    className={styles.cancelBtn}
+                    style={{ padding: '0.5rem 1.2rem', borderRadius: '6px', fontSize: '0.9rem' }}
+                >
+                    Back to {activeSubject || 'Folder'}
+                </button>
             </div>
 
             <form onSubmit={handleSubmit} className={styles.form}>
