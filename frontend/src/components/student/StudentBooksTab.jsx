@@ -93,26 +93,46 @@ const StudentBooksTab = () => {
         </div>
     );
 
-    const FolderCard = ({ title, count, onClick, color }) => (
+    const FolderCard = ({ title, count, onClick, color, emoji = '📁' }) => (
         <div onClick={onClick} style={{
             background: `linear-gradient(135deg, var(--color-border) 0%, var(--color-surface-hover) 100%)`,
             border: `1px solid ${color}`,
             borderRadius: '12px',
-            padding: '2rem',
+            padding: '1.75rem 1.25rem',
             cursor: 'pointer',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             transition: 'transform 0.2s, box-shadow 0.2s',
-            boxShadow: `0 4px 20px ${color}20`
+            boxShadow: `0 4px 20px ${color}15`,
+            position: 'relative'
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = `0 8px 25px ${color}40`; }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 20px ${color}20`; }}
+        onMouseEnter={(e) => { 
+            e.currentTarget.style.transform = 'translateY(-5px)'; 
+            e.currentTarget.style.boxShadow = `0 8px 25px ${color}35`; 
+        }}
+        onMouseLeave={(e) => { 
+            e.currentTarget.style.transform = 'translateY(0)'; 
+            e.currentTarget.style.boxShadow = `0 4px 20px ${color}15`; 
+        }}
         >
-            <div style={{ fontSize: '4rem', marginBottom: '1rem', color: color }}>📁</div>
-            <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--color-text-main)', fontSize: '1.5rem', fontWeight: '500' }}>{title}</h3>
-            <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>{count} Books</p>
+            <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>{emoji}</div>
+            <h3 style={{ margin: '0 0 0.4rem 0', color: 'var(--color-text-main)', fontSize: '1.25rem', fontWeight: '600', textAlign: 'center' }}>
+                {title}
+            </h3>
+            {count !== undefined && (
+                <span style={{ 
+                    fontSize: '0.85rem', 
+                    color: count > 0 ? '#10b981' : 'var(--color-text-muted)',
+                    fontWeight: count > 0 ? '600' : '400',
+                    background: count > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                    padding: '2px 10px',
+                    borderRadius: '12px'
+                }}>
+                    {count} {count === 1 ? 'Book' : 'Books'}
+                </span>
+            )}
         </div>
     );
 
@@ -131,15 +151,15 @@ const StudentBooksTab = () => {
             
             {loading ? <p style={{ color: 'var(--color-text-muted)' }}>Loading library...</p> : (
                 !activeClass ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
-                        {class6Books.length > 0 && <FolderCard title="Class 6" count={class6Books.length} onClick={() => setActiveClass('6')} color="#818cf8" />}
-                        {class7Books.length > 0 && <FolderCard title="Class 7" count={class7Books.length} onClick={() => setActiveClass('7')} color="#c084fc" />}
-                        {class8Books.length > 0 && <FolderCard title="Class 8" count={class8Books.length} onClick={() => setActiveClass('8')} color="#a78bfa" />}
-                        {class9Books.length > 0 && <FolderCard title="Class 9" count={class9Books.length} onClick={() => setActiveClass('9')} color="#fb923c" />}
-                        {class10Books.length > 0 && <FolderCard title="Class 10" count={class10Books.length} onClick={() => setActiveClass('10')} color="#60a5fa" />}
-                        {class11Books.length > 0 && <FolderCard title="Class 11" count={class11Books.length} onClick={() => setActiveClass('11')} color="#fcd34d" />}
-                        {class12Books.length > 0 && <FolderCard title="Class 12" count={class12Books.length} onClick={() => setActiveClass('12')} color="#34d399" />}
-                        {otherBooks.length > 0 && <FolderCard title="General" count={otherBooks.length} onClick={() => setActiveClass('General')} color="#f472b6" />}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                        {class6Books.length > 0 && <FolderCard title="Class 6" count={class6Books.length} onClick={() => setActiveClass('6')} color="#ec4899" emoji="📖" />}
+                        {class7Books.length > 0 && <FolderCard title="Class 7" count={class7Books.length} onClick={() => setActiveClass('7')} color="#8b5cf6" emoji="📙" />}
+                        {class8Books.length > 0 && <FolderCard title="Class 8" count={class8Books.length} onClick={() => setActiveClass('8')} color="#a78bfa" emoji="📐" />}
+                        {class9Books.length > 0 && <FolderCard title="Class 9" count={class9Books.length} onClick={() => setActiveClass('9')} color="#fb923c" emoji="🔬" />}
+                        {class10Books.length > 0 && <FolderCard title="Class 10" count={class10Books.length} onClick={() => setActiveClass('10')} color="#60a5fa" emoji="🎒" />}
+                        {class11Books.length > 0 && <FolderCard title="Class 11" count={class11Books.length} onClick={() => setActiveClass('11')} color="#fcd34d" emoji="🏫" />}
+                        {class12Books.length > 0 && <FolderCard title="Class 12" count={class12Books.length} onClick={() => setActiveClass('12')} color="#34d399" emoji="🎓" />}
+                        {otherBooks.length > 0 && <FolderCard title="General" count={otherBooks.length} onClick={() => setActiveClass('General')} color="#f472b6" emoji="📚" />}
                         {books.length === 0 && <p style={{ color: 'var(--color-text-muted)' }}>No books available.</p>}
                     </div>
                 ) : (
