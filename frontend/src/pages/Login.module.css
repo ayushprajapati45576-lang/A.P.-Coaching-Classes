@@ -30,6 +30,15 @@
   gap: var(--spacing-sm);
 }
 
+.logoImg {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 4px 15px rgba(31, 127, 209, 0.2);
+  margin-bottom: var(--spacing-sm);
+}
+
 .logo {
   width: 48px;
   height: 48px;
@@ -119,20 +128,21 @@
 }
 
 .submitBtn {
-  background: var(--color-primary);
-  color: var(--color-background);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  color: #ffffff;
   border: none;
   padding: 0.9rem;
-  border-radius: 8px;
+  border-radius: 9999px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease;
+  box-shadow: 0 6px 20px -3px rgba(224, 138, 0, 0.35);
 }
 
 .submitBtn:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 10px 25px -3px rgba(31, 127, 209, 0.45);
 }
 
 .submitBtn:disabled {
@@ -194,6 +204,7 @@
   display: none;
   /* hidden on mobile */
   position: relative;
+  border-right: 1px solid var(--color-border);
 }
 
 .imageSection::before {

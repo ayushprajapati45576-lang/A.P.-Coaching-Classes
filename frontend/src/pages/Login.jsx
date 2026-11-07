@@ -28,10 +28,16 @@ const Login = () => {
 
   return (
     <div className={styles.loginContainer}>
+      {/* Image Section on the Left */}
+      <div className={styles.imageSection}>
+        <div className={styles.imageOverlay}></div>
+      </div>
+
+      {/* Form Section on the Right */}
       <div className={styles.formSection}>
         <div className={`animate-fade-in ${styles.formContent}`}>
           <div className={styles.header}>
-            <div className={styles.logo}>C</div>
+            <img src="/logo.jpeg" alt="A.P. Coaching Logo" className={styles.logoImg} />
             <h2>Welcome back</h2>
             <p>Welcome back! Please enter your details.</p>
           </div>
@@ -101,10 +107,6 @@ const Login = () => {
             Don't have an account? <Link to="/register">Sign up</Link>
           </p>
         </div>
-      </div>
-      
-      <div className={styles.imageSection}>
-        <div className={styles.imageOverlay}></div>
       </div>
     </div>
   );
