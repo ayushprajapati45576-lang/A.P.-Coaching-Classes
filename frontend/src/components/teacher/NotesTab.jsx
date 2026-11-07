@@ -11,7 +11,7 @@ const CLASS_SUBJECTS = {
     '11': ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'English', 'Accountancy', 'Business Studies', 'Economics', 'Physical Education', 'Computer Science'],
     '12': ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'English', 'Accountancy', 'Business Studies', 'Economics', 'Physical Education', 'Computer Science'],
     'General': ['General Notes', 'Important Material', 'Sample Papers']
-};
+};  
 
 // Distinct colors and emojis for subjects
 const SUBJECT_META = {
