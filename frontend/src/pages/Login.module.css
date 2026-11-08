@@ -1,148 +1,355 @@
 .loginContainer {
   display: flex;
-  min-height: 100dvh;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
   position: relative;
-  overflow: hidden;
-  background-color: var(--color-background);
-  color: var(--color-text-main);
+  overflow: hidden; /* Permanently stops slider / scrollbar jumping on desktop */
+  background: linear-gradient(135deg, #091319 0%, #0f2027 40%, #203a43 75%, #2c5364 100%);
+  color: #ffffff;
+  padding: 1.5rem 2rem;
 }
 
-.formSection {
-  flex: 1;
+/* Back to Home Button (Top-Left of Page) */
+.backHomeBtn {
+  position: absolute;
+  top: 1.75rem;
+  left: 2.2rem;
+  z-index: 25;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  background: rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  padding: 0.6rem 1.25rem;
+  border-radius: 9999px;
+  font-family: var(--font-family-body);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+.backHomeBtn:hover {
+  background: rgba(34, 211, 238, 0.18);
+  border-color: #22d3ee;
+  color: #22d3ee;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(34, 211, 238, 0.35);
+}
+
+/* Main Unified Single Page Flex Wrapper (z-index 5, strictly in front of cubes) */
+.mainWrapper {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3.5rem;
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* Relative container holding both the 3D Cubes behind and Card in front */
+.cardContainer {
+  position: relative;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-2xl);
 }
 
-.formContent {
+/* 3D Perspective Container - STRICTLY BEHIND (z-index: 1) */
+.cubePerspective {
+  position: absolute;
+  inset: 0;
+  perspective: 750px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Refined 3D Rotating Cube Base - Delicate, Glowing, Futuristic */
+.cube {
+  position: absolute;
+  width: var(--cube-size, 80px);
+  height: var(--cube-size, 80px);
+  transform-style: preserve-3d;
+  animation: rotateCube var(--cube-speed, 9s) linear infinite;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.cube i {
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid #22d3ee;
+  background: rgba(34, 211, 238, 0.08);
+  box-shadow: inset 0 0 12px rgba(34, 211, 238, 0.22), 0 0 18px rgba(34, 211, 238, 0.22);
+  backdrop-filter: blur(1.5px);
+  -webkit-backdrop-filter: blur(1.5px);
+}
+
+.cube i:nth-child(1) { transform: translateZ(var(--cube-half)); }
+.cube i:nth-child(2) { transform: rotateY(90deg) translateZ(var(--cube-half)); }
+.cube i:nth-child(3) { transform: rotateY(180deg) translateZ(var(--cube-half)); }
+.cube i:nth-child(4) { transform: rotateY(270deg) translateZ(var(--cube-half)); }
+.cube i:nth-child(5) { transform: rotateX(90deg) translateZ(var(--cube-half)); }
+.cube i:nth-child(6) { transform: rotateX(-90deg) translateZ(var(--cube-half)); }
+
+@keyframes rotateCube {
+  to {
+    transform: rotateX(360deg) rotateY(360deg);
+  }
+}
+
+/* Left Image Section - Desktop display, Shifted Left */
+.imageSection {
+  flex: 1.35;
+  display: none;
+  align-items: center;
+  justify-content: flex-start;
+  position: relative;
+  max-width: 760px;
   width: 100%;
-  max-width: 400px;
+}
+
+@media (min-width: 900px) {
+  .imageSection {
+    display: flex;
+  }
+}
+
+/* Image Card - STRICTLY IN FRONT OF CUBES (z-index: 5) */
+.imageCard {
+  position: relative;
+  z-index: 5;
+  width: 100%;
+  max-width: 740px;
+  border-radius: 26px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 25px 65px -15px rgba(0, 0, 0, 0.72), 0 0 40px rgba(34, 211, 238, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.imageCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 32px 75px -15px rgba(0, 0, 0, 0.8), 0 0 50px rgba(34, 211, 238, 0.24);
+}
+
+.showcaseImg {
+  width: 100%;
+  height: auto;
+  max-height: 520px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Right Form Section */
+.formSection {
+  flex: 0.85;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  position: relative;
+  max-width: 440px;
+  width: 100%;
+}
+
+/* Form Cubes - Only at Diagonally Opposite Corners (Top-Left & Bottom-Right) */
+.cubeA {
+  --cube-size: 85px;
+  --cube-half: 42.5px;
+  --cube-speed: 9s;
+  top: -28px;
+  left: -28px;
+}
+
+.cubeB {
+  --cube-size: 85px;
+  --cube-half: 42.5px;
+  --cube-speed: 9s;
+  bottom: -28px;
+  right: -28px;
+  animation-direction: reverse;
+}
+
+/* Floating Glass Login Card - STRICTLY IN FRONT OF CUBES (z-index: 5) */
+@keyframes floatCard {
+  0% {
+    transform: translateY(0px);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55), 0 0 30px rgba(34, 211, 238, 0.12);
+  }
+  50% {
+    transform: translateY(-8px);
+    box-shadow: 0 32px 60px -12px rgba(0, 0, 0, 0.65), 0 0 38px rgba(34, 211, 238, 0.18);
+  }
+  100% {
+    transform: translateY(0px);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55), 0 0 30px rgba(34, 211, 238, 0.12);
+  }
+}
+
+.floatingCard {
+  position: relative;
+  z-index: 5;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 26px;
+  padding: 2.4rem 2.2rem;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xl);
+  animation: floatCard 6s ease-in-out infinite;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  will-change: transform;
+}
+
+.floatingCard:hover {
+  animation-play-state: paused;
+  transform: translateY(-8px) scale(1.01);
+  box-shadow: 0 36px 70px -12px rgba(0, 0, 0, 0.7), 0 0 45px rgba(34, 211, 238, 0.28);
 }
 
 .header {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--spacing-sm);
+  gap: 0.35rem;
+  margin-bottom: 1.35rem;
 }
 
 .logoImg {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  object-fit: cover;
-  box-shadow: 0 4px 15px rgba(31, 127, 209, 0.2);
-  margin-bottom: var(--spacing-sm);
-}
-
-.logo {
   width: 48px;
   height: 48px;
-  background: black;
-  border-radius: var(--border-radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: white;
-  margin-bottom: var(--spacing-sm);
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 4px 15px rgba(34, 211, 238, 0.3);
+  margin-bottom: 0.35rem;
+  border: 2px solid rgba(255, 255, 255, 0.4);
 }
 
 .header h2 {
-  font-size: 2rem;
-  color: var(--color-text-main);
+  font-family: var(--font-family-heading);
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .header p {
-  color: var(--color-text-muted);
-  font-size: 1rem;
+  color: #cbd5e1;
+  font-size: 0.92rem;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
+  gap: 0.95rem;
 }
 
 .inputGroup {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 
 .inputGroup label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f1f5f9;
 }
 
 .inputGroup input {
-  padding: 0.8rem 1rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text-main);
+  padding: 0.82rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  background: rgba(255, 255, 255, 0.10);
+  color: #ffffff;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 0.95rem;
   transition: all 0.2s ease;
+  outline: none;
+}
+
+.inputGroup input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .inputGroup input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(0, 229, 153, 0.2);
-  background: var(--color-surface-hover);
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.25);
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .formOptions {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 0.2rem;
-  margin-bottom: 0.5rem;
+  margin-top: 0.15rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.85rem;
 }
 
 .checkboxLabel {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.875rem;
-  color: #475569;
+  color: #cbd5e1;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.checkboxLabel input[type="checkbox"] {
+  accent-color: #22d3ee;
+  width: 16px;
+  height: 16px;
   cursor: pointer;
 }
 
 .forgotLink {
-  font-size: 0.875rem;
-  color: #0f172a;
-  font-weight: 500;
+  color: #22d3ee;
+  font-weight: 600;
   text-decoration: none;
+  transition: color 0.2s ease;
 }
 
 .forgotLink:hover {
+  color: #67e8f9;
   text-decoration: underline;
 }
 
 .submitBtn {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-  color: #ffffff;
+  background: #22d3ee;
+  color: #0f172a;
   border: none;
-  padding: 0.9rem;
-  border-radius: 9999px;
+  padding: 0.88rem;
+  border-radius: 12px;
+  font-family: var(--font-family-heading);
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease;
-  box-shadow: 0 6px 20px -3px rgba(224, 138, 0, 0.35);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease, background 0.2s ease;
+  box-shadow: 0 6px 20px rgba(34, 211, 238, 0.4);
+  margin-top: 0.35rem;
 }
 
 .submitBtn:hover:not(:disabled) {
+  background: #38bdf8;
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 10px 25px -3px rgba(31, 127, 209, 0.45);
+  box-shadow: 0 10px 25px rgba(34, 211, 238, 0.55);
 }
 
 .submitBtn:disabled {
@@ -150,81 +357,144 @@
   cursor: not-allowed;
 }
 
-.googleBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  background: var(--color-surface);
-  color: var(--color-text-main);
-  border: 1px solid var(--color-border);
-  padding: 0.9rem;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  margin-top: 0.5rem;
-}
-
-.googleBtn:hover {
-  background: var(--color-surface-hover);
-}
-
 .error {
-  color: #ef4444;
-  font-size: 0.875rem;
-  background: #fef2f2;
-  padding: 0.75rem;
-  border-radius: 8px;
-  border: 1px solid #fecaca;
+  color: #fca5a5;
+  font-size: 0.85rem;
+  background: rgba(239, 68, 68, 0.15);
+  padding: 0.7rem;
+  border-radius: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
   text-align: center;
 }
 
 .signupText {
   text-align: center;
-  font-size: 0.875rem;
-  color: #64748b;
-  margin-top: var(--spacing-xl);
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  margin-top: 1.4rem;
 }
 
 .signupText a {
-  color: var(--color-primary);
-  font-weight: 600;
+  color: #22d3ee;
+  font-weight: 700;
   text-decoration: none;
+  transition: color 0.2s ease;
 }
 
 .signupText a:hover {
+  color: #67e8f9;
   text-decoration: underline;
 }
 
-.imageSection {
-  flex: 1;
-  background: url('../assets/login-right-image.jpg') center/cover no-repeat;
-  display: none;
-  /* hidden on mobile */
-  position: relative;
-  border-right: 1px solid var(--color-border);
+/* Mobile & Tablet Screens */
+@media (max-width: 899px) {
+  .backHomeBtn {
+    top: 1rem;
+    left: 1rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.82rem;
+    background: rgba(15, 32, 39, 0.85);
+  }
+
+  .loginContainer {
+    height: auto;
+    min-height: 100dvh;
+    max-height: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 2.5rem 1.2rem;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mainWrapper {
+    width: 100%;
+    max-width: 440px;
+    margin: 0 auto;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .formSection {
+    flex: 1;
+    width: 100%;
+    max-width: 100%;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+  }
+
+  .cardContainer {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .floatingCard {
+    width: 100%;
+    max-width: 100%;
+    padding: 2.2rem 1.5rem;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.65), 0 0 25px rgba(34, 211, 238, 0.12);
+  }
+
+  .header {
+    align-items: center;
+    text-align: center;
+    margin-bottom: 1.25rem;
+  }
+
+  .header h2 {
+    font-size: 1.6rem;
+    text-align: center;
+  }
+
+  .header p {
+    font-size: 0.85rem;
+    text-align: center;
+  }
+
+  .logoImg {
+    margin: 0 auto 0.4rem auto;
+  }
+
+  .cubeA {
+    --cube-size: 58px;
+    --cube-half: 29px;
+    top: -14px;
+    left: -10px;
+  }
+
+  .cubeB {
+    --cube-size: 58px;
+    --cube-half: 29px;
+    bottom: -14px;
+    right: -10px;
+  }
 }
 
-.imageSection::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  backdrop-filter: blur(25px);
-  background-color: rgba(15, 23, 42, 0.7);
-  /* Dark semi-transparent overlay to make the main image pop */
-}
+/* Very Small Mobile Screens */
+@media (max-width: 380px) {
+  .loginContainer {
+    padding: 1.8rem 0.8rem;
+  }
 
-.imageOverlay {
-  position: absolute;
-  inset: 0;
-  background: url('../assets/login-right-image.jpg') center/contain no-repeat;
-  z-index: 1;
-}
+  .floatingCard {
+    padding: 1.8rem 1.1rem;
+    border-radius: 18px;
+  }
 
-@media (min-width: 900px) {
-  .imageSection {
-    display: block;
+  .formOptions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .cubeA, .cubeB {
+    display: none;
   }
 }

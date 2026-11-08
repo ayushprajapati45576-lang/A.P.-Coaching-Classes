@@ -1,10 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Float, RoundedBox, Edges, Environment, Lightformer, Text } from '@react-three/drei';
 import * as THREE from 'three';
 
 // Glass Cube Component with Edges & Auto-rotation
-const GlassCube = ({ position, color, size = 1, rotationSpeed = [0.005, 0.008, 0.004] }) => {
+const GlassCube = ({ position, color, size = 1, scale = 1, rotationSpeed = [0.005, 0.008, 0.004] }) => {
   const meshRef = useRef();
 
   useFrame(() => {
@@ -15,19 +15,23 @@ const GlassCube = ({ position, color, size = 1, rotationSpeed = [0.005, 0.008, 0
     }
   });
 
+  const finalSize = size * scale;
+
   return (
     <Float speed={2} rotationIntensity={0.8} floatIntensity={1.4}>
       <mesh ref={meshRef} position={position}>
-        <RoundedBox args={[size, size, size]} radius={0.12} smoothness={4}>
+        <RoundedBox args={[finalSize, finalSize, finalSize]} radius={0.12 * scale} smoothness={4}>
           <meshPhysicalMaterial
             color={color}
-            transmission={0.9}
-            roughness={0.05}
-            opacity={0.55}
+            transmission={0.6}
+            roughness={0.1}
+            opacity={0.8}
             transparent={true}
             ior={1.45}
-            thickness={1.2}
-            reflectivity={0.5}
+            thickness={0.8}
+            reflectivity={0.6}
+            clearcoat={1}
+            clearcoatRoughness={0.1}
           />
           <Edges color={color} threshold={15} />
         </RoundedBox>
@@ -37,7 +41,7 @@ const GlassCube = ({ position, color, size = 1, rotationSpeed = [0.005, 0.008, 0
 };
 
 // Golden Torus Knot Component
-const GoldenTorusKnot = ({ position }) => {
+const GoldenTorusKnot = ({ position, scale = 1 }) => {
   const meshRef = useRef();
 
   useFrame((_, delta) => {
@@ -49,7 +53,7 @@ const GoldenTorusKnot = ({ position }) => {
 
   return (
     <Float speed={1.8} rotationIntensity={1} floatIntensity={1.2}>
-      <mesh ref={meshRef} position={position}>
+      <mesh ref={meshRef} position={position} scale={scale}>
         <torusKnotGeometry args={[0.75, 0.24, 100, 16]} />
         <meshStandardMaterial
           color="#FFB703"
@@ -62,7 +66,7 @@ const GoldenTorusKnot = ({ position }) => {
 };
 
 // Glossy Blue Sphere
-const GlossySphere = ({ position }) => {
+const GlossySphere = ({ position, scale = 1 }) => {
   const meshRef = useRef();
 
   useFrame((_, delta) => {
@@ -73,7 +77,7 @@ const GlossySphere = ({ position }) => {
 
   return (
     <Float speed={2} rotationIntensity={0.6} floatIntensity={1.5}>
-      <mesh ref={meshRef} position={position}>
+      <mesh ref={meshRef} position={position} scale={scale}>
         <sphereGeometry args={[1.0, 32, 32]} />
         <meshPhysicalMaterial
           color="#1F7FD1"
@@ -135,60 +139,86 @@ const Rig = ({ children }) => {
   return <group ref={groupRef}>{children}</group>;
 };
 
-// Scene Content
+// Responsive Scene Content (dynamically adapts to mobile and desktop viewports)
 const Scene = () => {
+  const { width } = useThree((state) => state.viewport);
+  const isMobile = width < 7.5;
+
+  // Responsive horizontal positioning:
+  // On mobile (width ~ 4.8), objects are placed at ~ ±1.75 so they stay on-screen.
+  // On desktop (width ~ 16), objects are placed at ~ ±4.8.
+  const leftX = isMobile ? -width * 0.36 : Math.max(-5.2, -width * 0.32);
+  const rightX = isMobile ? width * 0.36 : Math.min(5.2, width * 0.32);
+
+  const topY = isMobile ? 3.6 : 2.8;
+  const bottomY = isMobile ? -3.6 : -2.3;
+  const scaleFactor = isMobile ? 0.65 : 1;
+
   return (
     <>
-      <ambientLight intensity={0.75} />
+      <ambientLight intensity={0.8} />
       <directionalLight position={[10, 10, 5]} intensity={1.3} />
 
-      {/* Drei Environment with Lightformers (pure mathematical lighting, no external HDR) */}
+      {/* Drei Environment with Lightformers */}
       <Environment resolution={256}>
         <group rotation={[-Math.PI / 3, 0, 1]}>
           <Lightformer form="circle" color="#FFFFFF" intensity={2} scale={10} position={[0, 5, -9]} />
-          <Lightformer form="circle" color="#80caff" intensity={2} scale={5} position={[-5, 1, -1]} />
-          <Lightformer form="circle" color="#ffbe76" intensity={2} scale={8} position={[10, 1, 0]} />
+          <Lightformer form="circle" color="#80caff" intensity={1.5} scale={5} position={[-5, 1, -1]} />
+          <Lightformer form="circle" color="#ffbe76" intensity={1.8} scale={8} position={[10, 1, 0]} />
         </group>
       </Environment>
 
       <Rig>
-        {/* 1. Big Blue Glass Cube (Top-Right) */}
+        {/* 1. Golden Metallic TorusKnot (Top-Left, framed neatly outside text) */}
+        <GoldenTorusKnot position={[leftX, topY, -0.2]} scale={scaleFactor * 0.95} />
+
+        {/* 2. Big Light-Blue Glass Cube (Top-Right) */}
         <GlassCube
-          position={[5.6, 2.6, -1]}
-          color="#1F7FD1"
-          size={1.5}
-          rotationSpeed={[0.004, 0.007, 0.003]}
+          position={[rightX, topY, -0.2]}
+          color="#90d5ff"
+          size={1.35}
+          scale={scaleFactor}
+          rotationSpeed={[0.005, 0.007, 0.004]}
         />
 
-        {/* 2. Amber Glass Cube (Bottom-Left) */}
+        {/* 3. Amber Glass Cube (Bottom-Left) */}
         <GlassCube
-          position={[-5.6, -2.4, -1]}
+          position={[leftX, bottomY, -0.2]}
           color="#E08A00"
-          size={1.3}
-          rotationSpeed={[0.006, 0.004, 0.005]}
+          size={1.25}
+          scale={scaleFactor}
+          rotationSpeed={[0.006, 0.005, 0.004]}
         />
 
-        {/* 3. Small Amber Glass Cube (Bottom-Right) */}
+        {/* 4. Glossy Blue Sphere (Bottom-Right) */}
+        <GlossySphere position={[rightX, bottomY + 0.3, 0]} scale={scaleFactor * 0.85} />
+
+        {/* 5. Small Amber Glass Cube (Bottom-Right behind Sphere) */}
         <GlassCube
-          position={[5.2, -3.2, 0]}
+          position={[rightX * 0.72, bottomY - 0.7, -0.3]}
           color="#E08A00"
-          size={0.85}
+          size={0.7}
+          scale={scaleFactor}
           rotationSpeed={[0.005, 0.008, 0.004]}
         />
 
-        {/* 4. Golden Metallic TorusKnot (Top-Left) */}
-        <GoldenTorusKnot position={[-5.2, 2.8, -1]} />
-
-        {/* 5. Glossy Blue Sphere (Right Side) */}
-        <GlossySphere position={[6.2, -0.2, -1.2]} />
-
-        {/* 6. Floating Math Symbols placed along margins */}
-        <MathSymbol char="π" position={[-4.0, 0.6, 0]} color="#E08A00" size={0.85} />
-        <MathSymbol char="∑" position={[-3.6, -1.5, -0.5]} color="#1F7FD1" size={0.8} />
-        <MathSymbol char="√x" position={[4.2, 1.3, 0]} color="#1F7FD1" size={0.75} />
-        <MathSymbol char="x²" position={[3.6, -1.3, -0.5]} color="#E08A00" size={0.75} />
-        <MathSymbol char="∫" position={[-2.8, 4.0, -1]} color="#1F7FD1" size={0.9} />
-        <MathSymbol char="θ" position={[3.2, 3.8, -1]} color="#E08A00" size={0.85} />
+        {/* 6. Floating Math Symbols placed adaptively */}
+        {isMobile ? (
+          <>
+            <MathSymbol char="π" position={[leftX * 0.95, topY - 1.1, 0]} color="#E08A00" size={0.6} />
+            <MathSymbol char="x²" position={[rightX * 0.95, topY - 1.1, 0]} color="#E08A00" size={0.55} />
+            <MathSymbol char="√x" position={[leftX * 0.95, bottomY + 1.1, 0]} color="#1F7FD1" size={0.6} />
+            <MathSymbol char="∑" position={[rightX * 0.95, bottomY + 1.1, 0]} color="#1F7FD1" size={0.6} />
+          </>
+        ) : (
+          <>
+            <MathSymbol char="θ" position={[-0.6, 3.8, 0]} color="#1F7FD1" size={0.85} />
+            <MathSymbol char="x²" position={[3.2, 3.2, 0]} color="#E08A00" size={0.75} />
+            <MathSymbol char="π" position={[-4.5, 1.2, 0]} color="#E08A00" size={0.8} />
+            <MathSymbol char="√x" position={[-4.2, -1.4, 0]} color="#1F7FD1" size={0.8} />
+            <MathSymbol char="∑" position={[4.6, -2.5, 0]} color="#1F7FD1" size={0.85} />
+          </>
+        )}
       </Rig>
     </>
   );
@@ -212,7 +242,7 @@ const Background3D = () => {
         zIndex: 0,
         pointerEvents: 'none',
         width: '100vw',
-        height: '100vh',
+        height: '100dvh',
         overflow: 'hidden',
       }}
     >
@@ -230,4 +260,3 @@ const Background3D = () => {
 };
 
 export default Background3D;
-

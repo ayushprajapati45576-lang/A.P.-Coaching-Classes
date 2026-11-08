@@ -134,7 +134,7 @@ const Home = () => {
       {/* Main Content (z-index 10) */}
       <main className={styles.content}>
 
-        {/* Hero Section */}
+        {/* Hero Section (Centered 3D Layout matching Lovable design) */}
         <motion.section
           id="home"
           className={styles.hero}
@@ -142,17 +142,54 @@ const Home = () => {
           initial="hidden"
           animate="visible"
         >
-          <div className={styles.heroContent}>
+          {/* Subtle Soft Ambient Glow behind Hero */}
+          <div className={styles.heroBlueGlow}></div>
+
+          {/* Floating 3D Badge 1: Round Check Chip (Far-Left) */}
+          <div className={`${styles.floatingBadge} ${styles.badgeFarLeft}`}>
+            <div className={styles.roundChipBlue}>
+              <Check size={26} color="#FFFFFF" strokeWidth={3.2} />
+            </div>
+          </div>
+
+          {/* Floating 3D Badge 2: Round Sparkle Chip (Far-Right) */}
+          <div className={`${styles.floatingBadge} ${styles.badgeFarRight}`}>
+            <div className={styles.roundChipDeepBlue}>
+              <Sparkles size={24} color="#FFFFFF" strokeWidth={2.5} />
+            </div>
+          </div>
+
+          {/* Floating 3D Badge 3: Five Star Review Card (Bottom-Left) */}
+          <div className={`${styles.floatingBadge} ${styles.badgeBottomLeft}`}>
+            <div className={styles.glassReviewCard}>
+              <div className={styles.starRow}>
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} size={15} fill="#E08A00" color="#E08A00" />
+                ))}
+              </div>
+              <div className={styles.reviewTitle}>Five Star Parents' Choice</div>
+            </div>
+          </div>
+
+          {/* Floating 3D Badge 4: Testimonial Pill (Bottom-Right) */}
+          <div className={`${styles.floatingBadge} ${styles.badgeBottomRight}`}>
+            <div className={styles.orangePillBadge}>
+              <span>"My son topped Maths in boards!" 🎓</span>
+            </div>
+          </div>
+
+          {/* Centered Hero Content */}
+          <div className={styles.heroContentCentered}>
             {/* Admissions Open Glass Pill Badge */}
             <motion.div variants={itemVariants} className={styles.heroBadge}>
               <span className={styles.pulsingDot}></span>
-              <span>🎓 Admissions Open for 2026-2027 Session</span>
+              <span className={styles.badgeText}>🎓 Admissions Open for 2026-2027 Session</span>
             </motion.div>
 
-            {/* Main Heading with Brand Name Gradient Text */}
+            {/* Main Heading with Continuous Brand Gradient across A.P. Coaching Classes */}
             <motion.h1 variants={itemVariants} className={styles.heroTitle}>
               Excellence in Education<br />
-              <span className={styles.brandGradientText}>with A.P. Coaching Classes</span>
+              with <span className={styles.brandGradientText}>A.P. Coaching Classes</span>
             </motion.h1>
 
             <motion.p variants={itemVariants} className={styles.heroSubtitle}>
@@ -162,7 +199,7 @@ const Home = () => {
             <motion.div variants={itemVariants} className={styles.ctaGroup}>
               <button className={styles.primaryCta} onClick={() => navigate('/login')}>
                 <span>Get Started Now</span>
-                <ArrowRight size={20} className={styles.ctaArrow} />
+                <span className={styles.arrowIcon}>↗</span>
               </button>
               <button className={styles.secondaryCta} onClick={() => document.getElementById('features').scrollIntoView({ behavior: 'smooth' })}>
                 Explore Features
@@ -170,48 +207,14 @@ const Home = () => {
             </motion.div>
           </div>
 
-          {/* Hero Visual Area with Floating 3D Badges (Aleut-Style) */}
+          {/* Right side image commented out as per user request:
           <motion.div variants={itemVariants} className={styles.heroImageWrapper}>
             <div className={styles.imageInner}>
               <img src={heroImage} alt="Students studying together" className={styles.heroImg} />
               <div className={styles.heroImageGlow}></div>
             </div>
-
-            {/* Floating 3D Badge 1: Round Check Chip (Top-Left) */}
-            <div className={`${styles.floatingBadge} ${styles.badgeTopLeft}`}>
-              <div className={styles.roundChipBlue}>
-                <Check size={26} color="#FFFFFF" strokeWidth={3} />
-              </div>
-            </div>
-
-            {/* Floating 3D Badge 2: Round Sparkle Chip (Right Side) */}
-            <div className={`${styles.floatingBadge} ${styles.badgeRight}`}>
-              <div className={styles.roundChipAmber}>
-                <Sparkles size={24} color="#FFFFFF" strokeWidth={2.5} />
-              </div>
-            </div>
-
-            {/* Floating 3D Badge 3: Five Star Review Card (-4deg tilt, Bottom-Left) */}
-            <div className={`${styles.floatingBadge} ${styles.badgeBottomLeft}`}>
-              <div className={styles.glassReviewCard}>
-                <div className={styles.starRow}>
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={15} fill="#E08A00" color="#E08A00" />
-                  ))}
-                </div>
-                <div className={styles.reviewTitle}>Five Star Parents' Choice</div>
-                <div className={styles.reviewSub}>Concept clarity & best board results</div>
-              </div>
-            </div>
-
-            {/* Floating 3D Badge 4: Testimonial Pill (3deg tilt, Bottom-Right) */}
-            <div className={`${styles.floatingBadge} ${styles.badgeBottomRight}`}>
-              <div className={styles.orangePillBadge}>
-                <span className={styles.pillEmoji}>🏆</span>
-                <span>99% Board Success Rate</span>
-              </div>
-            </div>
           </motion.div>
+          */}
         </motion.section>
 
         {/* Extras: Infinite Subject Marquee Strip (30s linear loop) */}
