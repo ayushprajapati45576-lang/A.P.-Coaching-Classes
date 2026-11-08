@@ -69,7 +69,7 @@
     padding: var(--spacing-md);
     border-radius: var(--border-radius-sm);
     border: 1px solid var(--color-border);
-    background: var(--color-surface);
+    background: rgba(255, 255, 255, 0.88);
     color: var(--color-text-main);
     font-family: inherit;
     font-size: 1rem;
@@ -80,12 +80,13 @@
 .inputGroup textarea:focus,
 .inputGroup select:focus {
     outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+    border-color: var(--color-secondary, #1F7FD1);
+    box-shadow: 0 0 0 3px rgba(31, 127, 209, 0.2);
+    background: #ffffff;
 }
 
 .inputGroup option {
-    background: var(--color-surface);
+    background: #ffffff;
     color: var(--color-text-main);
 }
 
@@ -95,16 +96,16 @@
 }
 
 .submitBtn {
-    background: var(--color-primary);
-    color: var(--color-background) !important;
+    background: linear-gradient(135deg, var(--color-primary, #E08A00) 0%, var(--color-secondary, #1F7FD1) 100%);
+    color: #ffffff !important;
     border: none;
     padding: var(--spacing-sm) var(--spacing-xl);
     border-radius: var(--border-radius-full);
     font-size: 0.95rem;
-    font-weight: 500;
+    font-weight: 600;
     margin-top: var(--spacing-sm);
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 4px 14px rgba(224, 138, 0, 0.25);
     align-self: flex-start;
     animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     animation-delay: 0.4s;
@@ -112,15 +113,15 @@
 }
 
 .submitBtn:hover:not(:disabled) {
-    background: var(--color-primary-hover);
-    color: var(--color-background) !important;
+    background: linear-gradient(135deg, var(--color-primary-hover, #C97B00) 0%, var(--color-secondary-hover, #1869B0) 100%);
+    color: #ffffff !important;
     transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 6px 18px rgba(224, 138, 0, 0.35);
 }
 
 .submitBtn:active:not(:disabled) {
     transform: translateY(0) scale(0.97);
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 2px 8px rgba(224, 138, 0, 0.2);
     transition: all 0.1s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -198,7 +199,7 @@
 }
 
 .cancelBtn {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.85);
     color: var(--color-text-main);
     border: 1px solid var(--color-border);
     padding: 0.5rem 1rem;

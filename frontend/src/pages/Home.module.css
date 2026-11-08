@@ -96,15 +96,22 @@
   gap: 2.2rem;
 }
 
-.navLinks a {
+.navLinks a,
+.navLinkBtn {
+  background: transparent;
+  border: none;
+  font-family: inherit;
   color: #5A6689;
   text-decoration: none;
   font-weight: 500;
   font-size: 0.95rem;
+  cursor: pointer;
+  padding: 0;
   transition: color 0.2s ease;
 }
 
-.navLinks a:hover {
+.navLinks a:hover,
+.navLinkBtn:hover {
   color: #1F7FD1;
 }
 
@@ -178,13 +185,21 @@
 }
 
 .mobileNavLink {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
   color: #1B2240;
   text-decoration: none;
   font-size: 1.05rem;
   font-weight: 600;
-  padding: 0.65rem 0.85rem;
-  border-radius: 8px;
+  padding: 0.75rem 0.95rem;
+  border-radius: 10px;
   transition: background 0.2s, color 0.2s;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .mobileNavLink:hover {

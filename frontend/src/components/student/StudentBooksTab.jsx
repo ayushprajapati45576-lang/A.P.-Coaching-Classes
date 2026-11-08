@@ -37,13 +37,13 @@ const StudentBooksTab = () => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
             {bookList.map(b => (
                 <div key={b.id} style={{ 
-                    background: 'rgba(255,255,255,0.03)', 
+                    background: 'var(--color-surface)', 
                     padding: '1.5rem', 
                     borderRadius: '12px', 
-                    border: '1px solid rgba(255,255,255,0.08)', 
+                    border: '1px solid var(--color-border)', 
                     display: 'flex', 
                     flexDirection: 'column',
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                    boxShadow: '0 4px 14px rgba(27, 34, 64, 0.05)'
                 }}>
                     <h3 style={{ 
                         margin: '0 0 0.75rem 0', 
@@ -57,7 +57,7 @@ const StudentBooksTab = () => {
                     }}>{b.title}</h3>
                     <p style={{ margin: '0 0 1.25rem 0', color: 'var(--color-text-muted)', fontSize: '0.95rem', flex: 1, fontStyle: 'italic' }}>By {b.author || 'Unknown'}</p>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)' }}>{new Date(b.created_at).toLocaleDateString()}</span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{new Date(b.created_at).toLocaleDateString()}</span>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                             {b.file_url && (
                                 <a href={b.file_url} target="_blank" rel="noreferrer" style={{ 

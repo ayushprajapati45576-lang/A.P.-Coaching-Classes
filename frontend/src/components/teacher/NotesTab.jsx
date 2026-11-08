@@ -254,7 +254,7 @@ const NotesTab = () => {
     const FolderCard = ({ title, count, onClick, color, emoji = '📁', isAddCard = false }) => (
         <div onClick={onClick} style={{
             background: isAddCard 
-                ? 'rgba(255, 255, 255, 0.03)'
+                ? 'rgba(255, 255, 255, 0.45)'
                 : `linear-gradient(135deg, var(--color-border) 0%, var(--color-surface-hover) 100%)`,
             border: isAddCard ? `2px dashed ${color}` : `1px solid ${color}`,
             borderRadius: '12px',
@@ -533,7 +533,7 @@ const NotesTab = () => {
                         onClick={handleBackFromAdd} 
                         title={`Back to ${activeSubject || (activeClass ? 'Class ' + activeClass : 'Notes')}`}
                         style={{ 
-                            background: 'rgba(255, 255, 255, 0.08)', 
+                            background: 'rgba(255, 255, 255, 0.85)', 
                             border: '1px solid var(--color-border)', 
                             color: 'var(--color-primary)', 
                             cursor: 'pointer', 
@@ -547,8 +547,8 @@ const NotesTab = () => {
                             transition: 'all 0.2s ease',
                             padding: 0
                         }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.16)'; e.currentTarget.style.transform = 'translateX(-2px)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'; e.currentTarget.style.transform = 'translateX(0)'; }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.transform = 'translateX(-2px)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.85)'; e.currentTarget.style.transform = 'translateX(0)'; }}
                     >
                         ←
                     </button>

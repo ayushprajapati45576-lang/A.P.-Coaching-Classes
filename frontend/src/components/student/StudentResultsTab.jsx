@@ -78,7 +78,7 @@ const StudentResultsTab = () => {
                                     </tbody>
                                 </table>
 
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '4px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-surface-hover)', border: '1px solid var(--color-border)', padding: '1rem', borderRadius: '8px' }}>
                                     <div>
                                         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>Status / Total</div>
                                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>

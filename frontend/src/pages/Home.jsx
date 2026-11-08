@@ -22,6 +22,27 @@ const Home = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Smooth scroll handler for both desktop and mobile navigation
+  const scrollToSection = (id) => {
+    setMobileMenuOpen(false);
+    setTimeout(() => {
+      if (id === 'home') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      const element = document.getElementById(id);
+      if (element) {
+        const navbarHeight = 76;
+        const elementPosition = element.getBoundingClientRect().top + window.scrollY;
+        const offsetPosition = elementPosition - navbarHeight;
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        });
+      }
+    }, 100);
+  };
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -66,9 +87,9 @@ const Home = () => {
           </div>
 
           <div className={styles.navLinks}>
-            <a href="#home">Home</a>
-            <a href="#stats">Impact</a>
-            <a href="#features">Features</a>
+            <button type="button" className={styles.navLinkBtn} onClick={() => scrollToSection('home')}>Home</button>
+            <button type="button" className={styles.navLinkBtn} onClick={() => scrollToSection('stats')}>Impact</button>
+            <button type="button" className={styles.navLinkBtn} onClick={() => scrollToSection('features')}>Features</button>
           </div>
 
           <div className={styles.navActions}>
@@ -98,28 +119,29 @@ const Home = () => {
               transition={{ duration: 0.25, ease: 'easeInOut' }}
             >
               <div className={styles.mobileMenuLinks}>
-                <a 
-                  href="#home" 
-                  onClick={() => setMobileMenuOpen(false)}
+                <button 
+                  type="button"
+                  onClick={() => scrollToSection('home')}
                   className={styles.mobileNavLink}
                 >
                   Home
-                </a>
-                <a 
-                  href="#stats" 
-                  onClick={() => setMobileMenuOpen(false)}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => scrollToSection('stats')}
                   className={styles.mobileNavLink}
                 >
                   Impact
-                </a>
-                <a 
-                  href="#features" 
-                  onClick={() => setMobileMenuOpen(false)}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => scrollToSection('features')}
                   className={styles.mobileNavLink}
                 >
                   Features
-                </a>
+                </button>
                 <button 
+                  type="button"
                   className={styles.mobileMenuLoginBtn} 
                   onClick={() => { setMobileMenuOpen(false); navigate('/login'); }}
                 >
@@ -201,7 +223,7 @@ const Home = () => {
                 <span>Get Started Now</span>
                 <span className={styles.arrowIcon}>↗</span>
               </button>
-              <button className={styles.secondaryCta} onClick={() => document.getElementById('features').scrollIntoView({ behavior: 'smooth' })}>
+              <button className={styles.secondaryCta} onClick={() => scrollToSection('features')}>
                 Explore Features
               </button>
             </motion.div>

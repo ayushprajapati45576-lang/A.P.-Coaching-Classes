@@ -1,10 +1,14 @@
 .dashboardContainer {
-  --color-primary: #3B82F6;
-  --color-primary-hover: #2563EB;
+  --color-primary: #E08A00;
+  --color-primary-hover: #C97B00;
+  --color-secondary: #1F7FD1;
+  --color-secondary-hover: #1869B0;
   display: flex;
   height: 100dvh;
   overflow: hidden;
-  background: transparent;
+  background-color: var(--color-background, #FBF8F1);
+  background-image: radial-gradient(circle at 50% 0%, rgba(31, 127, 209, 0.14) 0%, rgba(251, 248, 241, 0.85) 45%, #FBF8F1 100%);
+  background-attachment: fixed;
   color: var(--color-text-main);
   position: relative;
 }
@@ -16,7 +20,7 @@
   transform: translate(-50%, -50%) rotate(-45deg);
   font-size: 5rem;
   font-weight: 700;
-  color: rgba(0, 0, 0, 0.4);
+  color: rgba(27, 34, 64, 0.035);
   pointer-events: none;
   z-index: 0;
   white-space: nowrap;
@@ -27,12 +31,15 @@
   width: 280px;
   display: flex;
   flex-direction: column;
-  background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-right: 1px solid rgba(27, 34, 64, 0.08);
   border-radius: 0;
   z-index: 10;
   transition: width 0.3s ease, margin 0.3s ease;
   white-space: nowrap;
+  box-shadow: 2px 0 16px rgba(27, 34, 64, 0.03);
 }
 
 .sidebarCollapsed {
@@ -52,13 +59,14 @@
 .logo {
   width: 40px;
   height: 40px;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  border-radius: var(--border-radius-sm);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   color: white;
+  box-shadow: 0 4px 12px rgba(224, 138, 0, 0.25);
 }
 
 .nav {
@@ -83,14 +91,15 @@
 }
 
 .navItem:hover {
-  background: var(--color-surface-hover);
+  background: rgba(255, 255, 255, 0.95);
   color: var(--color-text-main);
 }
 
 .activeTab {
-  background: rgba(59, 130, 246, 0.15) !important;
-  color: var(--color-primary) !important;
-  border-radius: 99px !important;
+  background: linear-gradient(135deg, rgba(224, 138, 0, 0.14) 0%, rgba(31, 127, 209, 0.14) 100%) !important;
+  color: var(--color-secondary) !important;
+  font-weight: 700 !important;
+  border-radius: 9999px !important;
   /* Pill shape */
 }
 
@@ -132,9 +141,10 @@
 
 .header {
   padding: var(--spacing-lg) var(--spacing-xl);
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface);
-  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(27, 34, 64, 0.08);
+  background: rgba(251, 248, 241, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   position: sticky;
   top: 0;
   z-index: 5;
@@ -183,11 +193,13 @@
     top: 0;
     bottom: 0;
     width: 280px;
-    background: var(--color-surface);
-    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(27, 34, 64, 0.08);
     transition: left 0.3s ease;
     z-index: 50;
-    box-shadow: 4px 0 15px rgba(0, 0, 0, 0.5);
+    box-shadow: 4px 0 20px rgba(27, 34, 64, 0.12);
   }
 
   .sidebarOpen {
@@ -220,20 +232,20 @@
   right: 1.5rem;
   max-width: 420px;
   width: calc(100% - 3rem);
-  background: rgba(15, 23, 42, 0.95);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(59, 130, 246, 0.5);
-  border-left: 4px solid var(--color-primary, #3b82f6);
+  border: 1px solid rgba(27, 34, 64, 0.1);
+  border-left: 4px solid var(--color-secondary, #1F7FD1);
   border-radius: 12px;
   padding: 1rem 1.25rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 10px 30px rgba(27, 34, 64, 0.12), 0 0 15px rgba(31, 127, 209, 0.12);
   display: flex;
   align-items: flex-start;
   gap: 0.85rem;
   z-index: 99999;
   animation: slideInDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  color: #ffffff;
+  color: var(--color-text-main);
 }
 
 @keyframes slideInDown {
@@ -263,7 +275,7 @@
   font-weight: 700;
   font-size: 0.95rem;
   margin: 0 0 0.25rem 0;
-  color: #ffffff;
+  color: var(--color-text-main);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -271,7 +283,7 @@
 
 .toastContent {
   font-size: 0.85rem;
-  color: #94a3b8;
+  color: var(--color-text-muted);
   margin: 0 0 0.6rem 0;
   line-height: 1.4;
   display: -webkit-box;
@@ -287,7 +299,7 @@
 }
 
 .toastViewBtn {
-  background: linear-gradient(135deg, var(--color-primary, #3b82f6), #2563eb);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
   color: #ffffff;
   border: none;
   padding: 0.35rem 0.85rem;
@@ -304,7 +316,7 @@
 
 .toastCloseBtn {
   background: transparent;
-  color: #94a3b8;
+  color: var(--color-text-muted);
   border: none;
   font-size: 1.1rem;
   cursor: pointer;
@@ -314,13 +326,13 @@
 }
 
 .toastCloseBtn:hover {
-  color: #ffffff;
+  color: var(--color-text-main);
 }
 
 .enableNotifBtn {
-  background: rgba(59, 130, 246, 0.15);
-  color: var(--color-primary, #3b82f6);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: rgba(31, 127, 209, 0.12);
+  color: var(--color-secondary, #1F7FD1);
+  border: 1px solid rgba(31, 127, 209, 0.25);
   padding: 0.35rem 0.75rem;
   border-radius: 99px;
   font-size: 0.8rem;
@@ -331,6 +343,11 @@
   gap: 0.35rem;
   transition: all 0.2s;
   white-space: nowrap;
+}
+
+.enableNotifBtn:hover {
+  background: var(--color-secondary, #1F7FD1);
+  color: #ffffff;
 }
 
 .enableNotifBtn:hover {

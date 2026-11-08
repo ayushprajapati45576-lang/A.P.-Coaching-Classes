@@ -95,15 +95,15 @@ const styles = {
     padding: '0 20px',
   },
   popup: {
-    backgroundColor: '#0A2342',
+    backgroundColor: '#1B2240',
     color: '#ffffff',
     padding: '20px',
     borderRadius: '16px',
     maxWidth: '400px',
     width: '100%',
     position: 'relative',
-    boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
-    border: '1px solid rgba(255,255,255,0.1)',
+    boxShadow: '0 12px 30px rgba(27, 34, 64, 0.25)',
+    border: '1px solid rgba(255,255,255,0.15)',
   },
   closeBtn: {
     position: 'absolute',
