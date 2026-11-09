@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import styles from './Tabs.module.css';
+import FeeReceiptModal from '../common/FeeReceiptModal';
+import { Printer } from 'lucide-react';
 
 // Safe fetch helper to completely prevent SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
 const safeFetchJson = async (url, options = {}) => {
@@ -46,6 +48,9 @@ const FeesTab = () => {
     const [formState, setFormState] = useState({});
     const [formError, setFormError] = useState('');
     const [formLoading, setFormLoading] = useState(false);
+
+    // Selected receipt for printing modal
+    const [selectedReceipt, setSelectedReceipt] = useState(null);
 
     useEffect(() => {
         fetchData();
@@ -208,6 +213,57 @@ const FeesTab = () => {
         setActiveForm(null);
         setFormState({});
         setFormError('');
+    };
+
+    // Print receipt for single payment
+    const handlePrintPaymentReceipt = (student, payment) => {
+        const studentPayments = (studentPaymentsMap[student.id] || [])
+            .sort((a, b) => new Date(a.payment_date) - new Date(b.payment_date));
+        const totalPaid = studentPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+        const totalFees = Number(student.total_fees) || 0;
+        const remainingFees = Math.max(0, totalFees - totalPaid);
+
+        setSelectedReceipt({
+            receiptNo: `APC-${payment.id ? String(payment.id).slice(0, 8).toUpperCase() : Math.floor(100000 + Math.random() * 900000)}`,
+            date: payment.payment_date,
+            studentName: student.full_name,
+            fatherName: student.father_name,
+            className: student.class_name || selectedClass,
+            phone: student.phone,
+            email: student.users?.email,
+            currentPaid: Number(payment.amount),
+            totalFees,
+            totalPaid,
+            remainingFees,
+            dueDate: student.fees_due_date,
+            paymentMode: 'Cash / Online UPI'
+        });
+    };
+
+    // Print consolidated fee statement receipt
+    const handlePrintConsolidatedReceipt = (student, studentPayments) => {
+        const totalPaid = (studentPayments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+        const totalFees = Number(student.total_fees) || 0;
+        const remainingFees = Math.max(0, totalFees - totalPaid);
+        const latestDate = studentPayments && studentPayments.length > 0 ? studentPayments[0].payment_date : getTodayString();
+
+        setSelectedReceipt({
+            receiptNo: `APC-STMT-${student.id ? String(student.id).slice(0, 8).toUpperCase() : Date.now().toString().slice(-6)}`,
+            date: latestDate,
+            studentName: student.full_name,
+            fatherName: student.father_name,
+            className: student.class_name || selectedClass,
+            phone: student.phone,
+            email: student.users?.email,
+            currentPaid: totalPaid,
+            totalFees,
+            totalPaid,
+            remainingFees,
+            dueDate: student.fees_due_date,
+            paymentMode: 'Consolidated Fee Record',
+            isStatement: true,
+            paymentsList: studentPayments || []
+        });
     };
 
     // -------------------------------------------------------------------------
@@ -658,7 +714,28 @@ const FeesTab = () => {
                                                     {isExpanded ? `▲ Hide records (${studentPayments.length})` : `▼ View records (${studentPayments.length})`}
                                                 </button>
 
-                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                                    {studentPayments.length > 0 && (
+                                                        <button
+                                                            onClick={() => handlePrintConsolidatedReceipt(student, studentPayments)}
+                                                            style={{
+                                                                background: 'rgba(224, 138, 0, 0.12)',
+                                                                border: '1px solid rgba(224, 138, 0, 0.3)',
+                                                                color: 'var(--color-primary, #E08A00)',
+                                                                padding: '0.35rem 0.85rem',
+                                                                borderRadius: '6px',
+                                                                fontSize: '0.85rem',
+                                                                fontWeight: '600',
+                                                                cursor: 'pointer',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px'
+                                                            }}
+                                                            title="Print consolidated fee receipt / statement"
+                                                        >
+                                                            <Printer size={14} /> Receipt Statement
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={() => handleOpenFeesForm(student)}
                                                         style={{
@@ -993,7 +1070,26 @@ const FeesTab = () => {
                                                         </span>
                                                     </div>
 
-                                                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                                    <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center' }}>
+                                                        <button
+                                                            onClick={() => handlePrintPaymentReceipt(student, p)}
+                                                            style={{
+                                                                background: 'rgba(31, 127, 209, 0.12)',
+                                                                border: '1px solid rgba(31, 127, 209, 0.3)',
+                                                                color: 'var(--color-secondary, #1F7FD1)',
+                                                                padding: '0.25rem 0.65rem',
+                                                                borderRadius: '6px',
+                                                                fontSize: '0.8rem',
+                                                                fontWeight: '600',
+                                                                cursor: 'pointer',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px'
+                                                            }}
+                                                            title="Print receipt for this payment"
+                                                        >
+                                                            <Printer size={13} /> Receipt
+                                                        </button>
                                                         <button
                                                             onClick={() => handleOpenEditPayment(student, p)}
                                                             style={{
@@ -1031,6 +1127,13 @@ const FeesTab = () => {
                     })}
                 </div>
             )}
+
+            {/* Fee Receipt Printable Modal */}
+            <FeeReceiptModal
+                isOpen={Boolean(selectedReceipt)}
+                onClose={() => setSelectedReceipt(null)}
+                receipt={selectedReceipt}
+            />
         </div>
     );
 };

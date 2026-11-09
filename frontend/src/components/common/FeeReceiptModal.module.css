@@ -1,0 +1,374 @@
+.modalOverlay {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    background: rgba(15, 23, 42, 0.75) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    z-index: 99999999 !important;
+    padding: 1.5rem !important;
+    box-sizing: border-box !important;
+    overflow-y: auto !important;
+}
+
+.modalContainer {
+    position: relative !important;
+    width: 100% !important;
+    max-width: 760px !important;
+    max-height: 92vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+    margin: auto !important;
+    z-index: 100000000 !important;
+}
+
+.actionBar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 0.75rem 1.25rem;
+    border-radius: 12px;
+    border: 1px solid rgba(27, 34, 64, 0.12);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    flex-shrink: 0;
+}
+
+.printBtn {
+    background: linear-gradient(135deg, #E08A00 0%, #1F7FD1 100%);
+    color: #ffffff;
+    border: none;
+    padding: 0.55rem 1.25rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 4px 12px rgba(31, 127, 209, 0.25);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.printBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(31, 127, 209, 0.35);
+}
+
+.closeBtn {
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background 0.15s ease;
+}
+
+.closeBtn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+/* Receipt Paper Styling */
+.receiptCard {
+    background: #ffffff !important;
+    color: #1e293b !important;
+    border: 2px solid #1B2240;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.3);
+    font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    position: relative;
+    overflow-y: auto;
+    max-height: calc(92vh - 70px);
+}
+
+.receiptCard::before {
+    content: '';
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    right: 5px;
+    bottom: 5px;
+    border: 1px solid rgba(27, 34, 64, 0.18);
+    border-radius: 8px;
+    pointer-events: none;
+}
+
+.headerSection {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #1B2240;
+    padding-bottom: 1rem;
+    margin-bottom: 1.25rem;
+    gap: 1rem;
+}
+
+.logoArea {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.coachingLogo {
+    width: 62px;
+    height: 62px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 2px solid #E08A00;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.titleArea h1 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #1B2240;
+    margin: 0;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+}
+
+.titleArea .tagline {
+    font-size: 0.82rem;
+    color: #E08A00;
+    font-weight: 700;
+    margin: 2px 0 0 0;
+}
+
+.titleArea .subDetails {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin: 2px 0 0 0;
+}
+
+.receiptBadgeArea {
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.receiptBadge {
+    display: inline-block;
+    background: #1B2240;
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 0.35rem 0.85rem;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+}
+
+.receiptNo {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+/* Info Grid */
+.infoGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem 1.5rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.85rem 1.15rem;
+    margin-bottom: 1.25rem;
+}
+
+.infoItem {
+    display: flex;
+    font-size: 0.88rem;
+    line-height: 1.4;
+}
+
+.infoLabel {
+    color: #64748b;
+    width: 120px;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.infoValue {
+    color: #0f172a;
+    font-weight: 700;
+    word-break: break-word;
+}
+
+/* Table */
+.feeTable {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.25rem;
+}
+
+.feeTable th {
+    background: #1B2240;
+    color: #ffffff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.65rem 0.85rem;
+    text-align: left;
+}
+
+.feeTable th:last-child {
+    text-align: right;
+}
+
+.feeTable td {
+    padding: 0.65rem 0.85rem;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.88rem;
+    color: #1e293b;
+}
+
+.feeTable td:last-child {
+    text-align: right;
+}
+
+.paidHighlightRow {
+    background: #ecfdf5 !important;
+}
+
+.paidHighlightRow td {
+    color: #065f46 !important;
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.paidTag {
+    display: inline-block;
+    background: #10b981;
+    color: #ffffff;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 99px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.remainingRow td {
+    color: #b91c1c;
+    font-weight: 700;
+}
+
+/* Amount in words & payment mode */
+.metaBox {
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.85rem;
+    font-size: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+/* Guidelines and Terms */
+.termsBox {
+    background: #fcfcfd;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.65rem 0.95rem;
+    margin-bottom: 1rem;
+    font-size: 0.74rem;
+    color: #475569;
+    line-height: 1.45;
+}
+
+.termsTitle {
+    font-weight: 700;
+    color: #1B2240;
+    margin-bottom: 0.25rem;
+    font-size: 0.78rem;
+}
+
+/* Stamp & Signature Section */
+.bottomSection {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 1rem;
+    padding-top: 0.5rem;
+}
+
+.stampBox {
+    width: 130px;
+    border: 2px dashed #059669;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #059669;
+    font-weight: 800;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    transform: rotate(-3deg);
+    line-height: 1.3;
+    text-align: center;
+    padding: 6px;
+}
+
+.signatureBox {
+    text-align: center;
+    width: 170px;
+}
+
+.signatureLine {
+    font-family: 'Brush Script MT', 'Dancing Script', cursive, sans-serif;
+    font-size: 1.4rem;
+    color: #1B2240;
+    margin-bottom: 2px;
+}
+
+.signatureDivider {
+    border-top: 1px solid #1e293b;
+    margin: 4px 0;
+}
+
+.signatureTitle {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #475569;
+}
+
+.footerNote {
+    border-top: 1px solid #e2e8f0;
+    padding-top: 0.65rem;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    text-align: center;
+    line-height: 1.4;
+}
+
+@media (max-width: 600px) {
+    .infoGrid {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+    .headerSection {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .receiptBadgeArea {
+        text-align: left;
+    }
+}

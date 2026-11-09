@@ -829,9 +829,63 @@ app.put('/api/fees/:id', authenticateToken, requireRole('teacher'), async (req, 
 
 app.get('/api/student/fees', authenticateToken, async (req, res) => {
     try {
-        const { data } = await supabase.from('fees').select('*').eq('student_id', req.user.id).order('due_date', { ascending: false });
-        res.json(data || []);
+        const { data: student } = await supabase
+            .from('students')
+            .select('id, full_name, father_name, phone, class_name, total_fees, fees_start_date, fees_due_date')
+            .eq('id', req.user.id)
+            .maybeSingle();
+
+        const { data: studentPayments } = await supabase
+            .from('payments')
+            .select('*')
+            .eq('student_id', req.user.id)
+            .order('payment_date', { ascending: false })
+            .order('created_at', { ascending: false });
+
+        const { data: oldFees } = await supabase
+            .from('fees')
+            .select('*')
+            .eq('student_id', req.user.id)
+            .order('due_date', { ascending: false });
+
+        if (student && (Number(student.total_fees) > 0 || (studentPayments && studentPayments.length > 0))) {
+            const total = Number(student.total_fees) || 0;
+            const payments = studentPayments || [];
+            const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+            const remainingDue = Math.max(0, total - totalPaid);
+
+            const records = payments.map(p => ({
+                id: p.id,
+                student_id: p.student_id,
+                amount: total,
+                paid_amount: Number(p.amount),
+                due_amount: remainingDue,
+                due_date: student.fees_due_date,
+                status: 'paid',
+                paid_date: p.payment_date,
+                student_info: student
+            }));
+
+            if (records.length === 0 && total > 0) {
+                records.push({
+                    id: 'due-' + student.id,
+                    student_id: student.id,
+                    amount: total,
+                    paid_amount: 0,
+                    due_amount: remainingDue,
+                    due_date: student.fees_due_date,
+                    status: 'pending',
+                    paid_date: null,
+                    student_info: student
+                });
+            }
+
+            return res.json(records);
+        }
+
+        res.json(oldFees || []);
     } catch (err) {
+        console.error("Error in GET /api/student/fees:", err);
         res.status(500).json({ error: "Internal server error" });
     }
 });

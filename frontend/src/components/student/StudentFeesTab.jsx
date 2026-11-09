@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import styles from '../teacher/Tabs.module.css';
-import { Calendar, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import FeeReceiptModal from '../common/FeeReceiptModal';
+import { Calendar, AlertCircle, CheckCircle2, Clock, Printer } from 'lucide-react';
 
 // Smart backend URL: auto-detects localhost to prevent calling old production Vercel
 const getBackendUrl = () => {
@@ -11,8 +13,10 @@ const getBackendUrl = () => {
 };
 
 const StudentFeesTab = () => {
+    const { user } = useAuth();
     const [fees, setFees] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [selectedReceipt, setSelectedReceipt] = useState(null);
 
     useEffect(() => {
         fetchFees();
@@ -83,6 +87,58 @@ const StudentFeesTab = () => {
         return { totalAssigned, totalPaid, totalDue, nextDueDate };
     }, [fees]);
 
+    const handlePrintRecordReceipt = (f) => {
+        const studentInfo = f.student_info || user || {};
+        const total = Number(f.amount) || stats.totalAssigned || 0;
+        const paidNow = Number(f.paid_amount) || (f.status === 'paid' ? total : 0);
+        const due = f.due_amount !== undefined && f.due_amount !== null 
+            ? Number(f.due_amount) 
+            : (f.status === 'paid' ? 0 : Math.max(0, total - paidNow));
+
+        setSelectedReceipt({
+            receiptNo: `APC-REC-${f.id ? String(f.id).slice(0, 8).toUpperCase() : Date.now().toString().slice(-6)}`,
+            date: f.paid_date || new Date().toISOString(),
+            studentName: studentInfo.full_name || user?.full_name || 'Student',
+            fatherName: studentInfo.father_name || user?.father_name || '-',
+            className: studentInfo.class_name || user?.class_name || '-',
+            phone: studentInfo.phone || user?.phone || '-',
+            email: user?.email || '',
+            currentPaid: paidNow,
+            totalFees: total,
+            totalPaid: stats.totalPaid,
+            remainingFees: due,
+            dueDate: f.due_date,
+            paymentMode: 'Cash / Online UPI'
+        });
+    };
+
+    const handlePrintSummaryReceipt = () => {
+        const studentInfo = (fees.length > 0 && fees[0].student_info) ? fees[0].student_info : (user || {});
+        const paidFeesList = fees.filter(f => Number(f.paid_amount) > 0 || f.status === 'paid').map(f => ({
+            id: f.id,
+            payment_date: f.paid_date || f.created_at,
+            amount: Number(f.paid_amount) || Number(f.amount) || 0
+        }));
+
+        setSelectedReceipt({
+            receiptNo: `APC-SUMMARY-${Date.now().toString().slice(-6)}`,
+            date: new Date().toISOString(),
+            studentName: studentInfo.full_name || user?.full_name || 'Student',
+            fatherName: studentInfo.father_name || user?.father_name || '-',
+            className: studentInfo.class_name || user?.class_name || '-',
+            phone: studentInfo.phone || user?.phone || '-',
+            email: user?.email || '',
+            currentPaid: stats.totalPaid,
+            totalFees: stats.totalAssigned,
+            totalPaid: stats.totalPaid,
+            remainingFees: stats.totalDue,
+            dueDate: stats.nextDueDate,
+            paymentMode: 'Consolidated Fee Summary',
+            isStatement: true,
+            paymentsList: paidFeesList
+        });
+    };
+
     return (
         <div className={`animate-fade-in`} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div>
@@ -126,7 +182,30 @@ const StudentFeesTab = () => {
 
             {/* Fees Table */}
             <div className={`glass-panel`} style={{ padding: '1.5rem' }}>
-                <h3 style={{ color: 'var(--color-text-main)', margin: '0 0 1rem 0', fontSize: '1.15rem' }}>Fee Records History</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                    <h3 style={{ color: 'var(--color-text-main)', margin: 0, fontSize: '1.15rem' }}>Fee Records History</h3>
+                    {stats.totalPaid > 0 && (
+                        <button
+                            onClick={handlePrintSummaryReceipt}
+                            style={{
+                                background: 'linear-gradient(135deg, var(--color-primary, #E08A00), var(--color-secondary, #1F7FD1))',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '0.45rem 1rem',
+                                borderRadius: '8px',
+                                fontSize: '0.85rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                boxShadow: '0 2px 8px rgba(31, 127, 209, 0.25)'
+                            }}
+                        >
+                            <Printer size={15} /> Print Fee Summary (रसीद)
+                        </button>
+                    )}
+                </div>
 
                 {loading ? (
                     <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>Loading fee details...</p>
@@ -143,6 +222,7 @@ const StudentFeesTab = () => {
                                     <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>DUE DATE</th>
                                     <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>STATUS</th>
                                     <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>PAID DATE</th>
+                                    <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>RECEIPT</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -244,6 +324,31 @@ const StudentFeesTab = () => {
                                             <td style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>
                                                 {f.paid_date ? formatDate(f.paid_date) : '-'}
                                             </td>
+                                            <td style={{ padding: '0.75rem' }}>
+                                                {(paid > 0 || f.status === 'paid') ? (
+                                                    <button
+                                                        onClick={() => handlePrintRecordReceipt(f)}
+                                                        style={{
+                                                            background: 'rgba(31, 127, 209, 0.12)',
+                                                            border: '1px solid rgba(31, 127, 209, 0.3)',
+                                                            color: 'var(--color-secondary, #1F7FD1)',
+                                                            padding: '0.3rem 0.75rem',
+                                                            borderRadius: '6px',
+                                                            fontSize: '0.8rem',
+                                                            fontWeight: '600',
+                                                            cursor: 'pointer',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                        }}
+                                                        title="Print Fee Receipt"
+                                                    >
+                                                        <Printer size={13} /> Print Receipt
+                                                    </button>
+                                                ) : (
+                                                    <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>-</span>
+                                                )}
+                                            </td>
                                         </tr>
                                     );
                                 })}
@@ -252,6 +357,13 @@ const StudentFeesTab = () => {
                     </div>
                 )}
             </div>
+
+            {/* Fee Receipt Printable Modal */}
+            <FeeReceiptModal
+                isOpen={Boolean(selectedReceipt)}
+                onClose={() => setSelectedReceipt(null)}
+                receipt={selectedReceipt}
+            />
         </div>
     );
 };

@@ -452,7 +452,7 @@ const Home = () => {
             <a href="#">About Us</a>
             <a href="#">Blog</a>
             <a href="#">Careers</a>
-            <a href="#">Contact</a>
+            <a href="tel:9981182741" title="Call Anil Sir">Contact: +91 9981182741</a>
           </div>
 
           <div className={styles.footerCol}>

@@ -216,21 +216,9 @@
 }
 
 @media print {
-
-    .tabContainer,
-    .form,
-    .noteViewerModal,
-    .glass-panel {
+    /* Only protect note viewer from printing */
+    .noteViewerModal {
         display: none !important;
-    }
-
-    body::before {
-        content: "Printing and downloading is disabled for security.";
-        display: block;
-        text-align: center;
-        font-size: 24px;
-        font-weight: bold;
-        margin-top: 20%;
     }
 }
 .flexHeader {
