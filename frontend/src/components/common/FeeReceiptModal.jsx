@@ -79,8 +79,318 @@ const generateReceiptShareText = (receipt) => {
 ✨ *Concept Clear, Future Secure*`;
 };
 
-// Build complete, responsive-isolated A4 Receipt HTML
-const buildReceiptHtml = (receipt, logoUrl) => {
+// Base64 logo helper to guarantee zero-latency, zero-CORS rendering
+let cachedLogoDataUrl = null;
+const getLogoDataUrl = async () => {
+    if (cachedLogoDataUrl) return cachedLogoDataUrl;
+    try {
+        const response = await fetch('/logo.jpeg');
+        const blob = await response.blob();
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                cachedLogoDataUrl = reader.result;
+                resolve(reader.result);
+            };
+            reader.onerror = () => resolve(window.location.origin + '/logo.jpeg');
+            reader.readAsDataURL(blob);
+        });
+    } catch {
+        return window.location.origin + '/logo.jpeg';
+    }
+};
+
+// CSS styles specifically designed for standard A4 desktop proportion (794px width)
+// immune to mobile viewport clamping
+const getReceiptCss = () => `
+    @page {
+        size: A4 portrait;
+        margin: 8mm 10mm;
+    }
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+    html, body {
+        width: 794px;
+        margin: 0;
+        padding: 0;
+        background: #ffffff;
+        font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
+        color: #1e293b;
+    }
+    .receipt-card {
+        box-sizing: border-box !important;
+        width: 794px !important;
+        min-width: 794px !important;
+        max-width: 794px !important;
+        min-height: 1060px;
+        border: 2.5px solid #1B2240;
+        border-radius: 10px;
+        padding: 24px 28px 20px 28px;
+        position: relative;
+        background: #ffffff !important;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
+    }
+    .receipt-card::before {
+        content: '';
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        right: 6px;
+        bottom: 6px;
+        border: 1px solid rgba(27, 34, 64, 0.22);
+        border-radius: 7px;
+        pointer-events: none;
+    }
+    .header {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #1B2240;
+        padding-bottom: 12px;
+        gap: 12px;
+        width: 100%;
+    }
+    .logo-title {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center;
+        gap: 14px;
+    }
+    .logo {
+        width: 68px !important;
+        height: 68px !important;
+        min-width: 68px !important;
+        min-height: 68px !important;
+        border-radius: 50%;
+        border: 2.5px solid #E08A00;
+        object-fit: cover;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+    .title h1 {
+        font-size: 22px;
+        font-weight: 800;
+        color: #1B2240;
+        margin: 0;
+        letter-spacing: 0.5px;
+        line-height: 1.2;
+    }
+    .title p.tagline {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #E08A00;
+        margin: 2px 0 0 0;
+    }
+    .title p.sub {
+        font-size: 11px;
+        color: #475569;
+        font-weight: 500;
+        margin: 2px 0 0 0;
+    }
+    .title p.contact {
+        font-size: 11.5px;
+        color: #1B2240;
+        font-weight: 700;
+        margin: 2px 0 0 0;
+    }
+    .badge-box {
+        text-align: right;
+        flex-shrink: 0;
+        min-width: 170px;
+    }
+    .badge {
+        background: #1B2240 !important;
+        color: #ffffff !important;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 5px 14px;
+        border-radius: 6px;
+        display: inline-block;
+        letter-spacing: 0.5px;
+    }
+    .receipt-no {
+        font-size: 11.5px;
+        color: #64748b;
+        margin-top: 4px;
+        font-weight: 700;
+    }
+    .receipt-date {
+        font-size: 11px;
+        color: #0f172a;
+        font-weight: 600;
+        margin-top: 2px;
+    }
+    .content-body {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        flex: 1;
+        justify-content: space-around;
+        padding: 10px 0;
+    }
+    .info-table {
+        width: 100% !important;
+        border-collapse: collapse;
+        background: #f8fafc !important;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        table-layout: fixed;
+    }
+    .info-table td {
+        width: 50%;
+        padding: 6px 12px;
+        font-size: 13.5px;
+        line-height: 1.35;
+        vertical-align: top;
+    }
+    .info-label {
+        color: #64748b;
+        display: inline-block;
+        width: 125px;
+        font-weight: 600;
+    }
+    .info-val {
+        color: #0f172a;
+        font-weight: 700;
+    }
+    .fee-table {
+        width: 100% !important;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+    .fee-table th {
+        background: #1B2240 !important;
+        color: #ffffff !important;
+        font-size: 13px;
+        font-weight: 700;
+        padding: 9px 12px;
+        text-align: left;
+    }
+    .fee-table th.col-amount, .fee-table td.col-amount {
+        width: 160px;
+        text-align: right;
+    }
+    .fee-table th.col-sno, .fee-table td.col-sno {
+        width: 45px;
+        text-align: center;
+    }
+    .fee-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 13.5px;
+        color: #1e293b;
+    }
+    .paid-row {
+        background: #ecfdf5 !important;
+    }
+    .paid-row td {
+        color: #065f46 !important;
+        font-weight: 800;
+        font-size: 14.5px;
+    }
+    .paid-tag {
+        background: #10b981 !important;
+        color: #ffffff !important;
+        font-size: 11px;
+        font-weight: 800;
+        padding: 2px 9px;
+        border-radius: 99px;
+        margin-left: 8px;
+        vertical-align: middle;
+    }
+    .due-row td {
+        color: #b91c1c !important;
+        font-weight: 700;
+    }
+    .meta-box {
+        background: #f8fafc !important;
+        border: 1px dashed #cbd5e1;
+        border-radius: 8px;
+        padding: 9px 14px;
+        font-size: 13px;
+        line-height: 1.5;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+    .terms-box {
+        background: #fcfcfd !important;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 8px 14px;
+        font-size: 11px;
+        color: #475569;
+        line-height: 1.45;
+    }
+    .terms-title {
+        font-weight: 700;
+        color: #1B2240;
+        margin-bottom: 3px;
+        font-size: 11.5px;
+    }
+    .bottom-row {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        justify-content: space-between;
+        align-items: flex-end;
+        padding-top: 6px;
+        width: 100%;
+    }
+    .stamp-box {
+        width: 140px;
+        border: 2px dashed #059669;
+        border-radius: 8px;
+        color: #059669;
+        text-align: center;
+        padding: 6px;
+        transform: rotate(-3deg);
+        line-height: 1.3;
+    }
+    .sign-box {
+        text-align: center;
+        width: 190px;
+    }
+    .sign-text {
+        font-family: 'Brush Script MT', 'Dancing Script', 'Segoe Script', cursive, sans-serif;
+        font-size: 24px;
+        color: #1B2240;
+        font-weight: bold;
+    }
+    .sign-line {
+        border-top: 1.5px solid #1B2240;
+        margin: 3px 0 4px 0;
+    }
+    .sign-title {
+        font-size: 11px;
+        font-weight: 700;
+        color: #334155;
+    }
+    .footer-note {
+        border-top: 1px solid #e2e8f0;
+        padding-top: 6px;
+        font-size: 10.5px;
+        color: #94a3b8;
+        text-align: center;
+    }
+    @media print {
+        body { width: 100% !important; height: 100% !important; }
+        .receipt-card { width: 100% !important; min-height: 270mm !important; }
+    }
+`;
+
+// Inner receipt card HTML with non-collapsible 2-column table layout
+const buildReceiptCardHtml = (receipt, logoUrl) => {
     const previouslyPaid = Math.max(0, (receipt.totalPaid || receipt.currentPaid) - receipt.currentPaid);
     const receiptNo = receipt.receiptNo || (receipt.id ? `REC-${String(receipt.id).padStart(5, '0')}` : `APC-${Date.now().toString().slice(-6)}`);
     const dateStr = formatDate(receipt.date || new Date().toISOString());
@@ -89,6 +399,7 @@ const buildReceiptHtml = (receipt, logoUrl) => {
     const rawClass = receipt.className || receipt.class || '';
     const classNameStr = rawClass ? (String(rawClass).toLowerCase().includes('class') ? rawClass : `Class ${rawClass}`) : '-';
     const phone = receipt.phone || '-';
+    const studentEmail = receipt.email || receipt.studentEmail || '';
     const totalFeesStr = formatCurrency(receipt.totalFees);
     const currentPaidStr = formatCurrency(receipt.currentPaid);
     const prevPaidStr = formatCurrency(previouslyPaid);
@@ -99,282 +410,7 @@ const buildReceiptHtml = (receipt, logoUrl) => {
     const isStatement = Boolean(receipt.isStatement);
     const paymentsList = receipt.paymentsList || [];
 
-    return `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Fee Receipt - ${studentName}</title>
-    <style>
-        @page {
-            size: A4 portrait;
-            margin: 8mm 10mm;
-        }
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
-        }
-        html, body {
-            width: 794px;
-            margin: 0;
-            padding: 0;
-            background: #ffffff;
-            font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
-            color: #1e293b;
-        }
-        .receipt-card {
-            box-sizing: border-box;
-            width: 794px;
-            min-height: 1120px;
-            border: 2.5px solid #1B2240;
-            border-radius: 10px;
-            padding: 24px 28px 20px 28px;
-            position: relative;
-            background: #ffffff;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-        .receipt-card::before {
-            content: '';
-            position: absolute;
-            top: 6px;
-            left: 6px;
-            right: 6px;
-            bottom: 6px;
-            border: 1px solid rgba(27, 34, 64, 0.22);
-            border-radius: 7px;
-            pointer-events: none;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #1B2240;
-            padding-bottom: 12px;
-            gap: 12px;
-        }
-        .logo-title {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-        .logo {
-            width: 68px;
-            height: 68px;
-            border-radius: 50%;
-            border: 2.5px solid #E08A00;
-            object-fit: cover;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-        }
-        .title h1 {
-            font-size: 22px;
-            font-weight: 800;
-            color: #1B2240;
-            margin: 0;
-            letter-spacing: 0.5px;
-            line-height: 1.2;
-        }
-        .title p.tagline {
-            font-size: 11.5px;
-            font-weight: 700;
-            color: #E08A00;
-            margin: 2px 0 0 0;
-        }
-        .title p.sub {
-            font-size: 11px;
-            color: #475569;
-            font-weight: 500;
-            margin: 2px 0 0 0;
-        }
-        .title p.contact {
-            font-size: 11.5px;
-            color: #1B2240;
-            font-weight: 700;
-            margin: 2px 0 0 0;
-        }
-        .badge-box {
-            text-align: right;
-            flex-shrink: 0;
-        }
-        .badge {
-            background: #1B2240 !important;
-            color: #ffffff !important;
-            font-size: 12px;
-            font-weight: 700;
-            padding: 5px 14px;
-            border-radius: 6px;
-            display: inline-block;
-            letter-spacing: 0.5px;
-        }
-        .receipt-no {
-            font-size: 11.5px;
-            color: #64748b;
-            margin-top: 4px;
-            font-weight: 700;
-        }
-        .receipt-date {
-            font-size: 11px;
-            color: #0f172a;
-            font-weight: 600;
-            margin-top: 2px;
-        }
-        .content-body {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            flex: 1;
-            justify-content: space-around;
-            padding: 10px 0;
-        }
-        .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px 20px;
-            background: #f8fafc !important;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            padding: 10px 16px;
-        }
-        .info-item {
-            display: flex;
-            font-size: 13.5px;
-            line-height: 1.35;
-        }
-        .info-label {
-            color: #64748b;
-            width: 125px;
-            font-weight: 600;
-            flex-shrink: 0;
-        }
-        .info-val {
-            color: #0f172a;
-            font-weight: 700;
-        }
-        .fee-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .fee-table th {
-            background: #1B2240 !important;
-            color: #ffffff !important;
-            font-size: 13px;
-            font-weight: 700;
-            padding: 9px 12px;
-            text-align: left;
-        }
-        .fee-table th:last-child {
-            text-align: right;
-        }
-        .fee-table td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 13.5px;
-            color: #1e293b;
-        }
-        .fee-table td:last-child {
-            text-align: right;
-        }
-        .paid-row {
-            background: #ecfdf5 !important;
-        }
-        .paid-row td {
-            color: #065f46 !important;
-            font-weight: 800;
-            font-size: 14.5px;
-        }
-        .paid-tag {
-            background: #10b981 !important;
-            color: #ffffff !important;
-            font-size: 11px;
-            font-weight: 800;
-            padding: 2px 9px;
-            border-radius: 99px;
-            margin-left: 8px;
-            vertical-align: middle;
-        }
-        .due-row td {
-            color: #b91c1c !important;
-            font-weight: 700;
-        }
-        .meta-box {
-            background: #f8fafc !important;
-            border: 1px dashed #cbd5e1;
-            border-radius: 8px;
-            padding: 9px 14px;
-            font-size: 13px;
-            line-height: 1.5;
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-        }
-        .terms-box {
-            background: #fcfcfd !important;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 8px 14px;
-            font-size: 11px;
-            color: #475569;
-            line-height: 1.45;
-        }
-        .terms-title {
-            font-weight: 700;
-            color: #1B2240;
-            margin-bottom: 3px;
-            font-size: 11.5px;
-        }
-        .bottom-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            padding-top: 6px;
-        }
-        .stamp-box {
-            width: 140px;
-            border: 2px dashed #059669;
-            border-radius: 8px;
-            color: #059669;
-            text-align: center;
-            padding: 6px;
-            transform: rotate(-3deg);
-            line-height: 1.3;
-        }
-        .sign-box {
-            text-align: center;
-            width: 180px;
-        }
-        .sign-text {
-            font-family: 'Brush Script MT', 'Dancing Script', 'Segoe Script', cursive, sans-serif;
-            font-size: 23px;
-            color: #1B2240;
-            font-weight: bold;
-        }
-        .sign-line {
-            border-top: 1.5px solid #1B2240;
-            margin: 3px 0 4px 0;
-        }
-        .sign-title {
-            font-size: 11px;
-            font-weight: 700;
-            color: #334155;
-        }
-        .footer-note {
-            border-top: 1px solid #e2e8f0;
-            padding-top: 6px;
-            font-size: 10.5px;
-            color: #94a3b8;
-            text-align: center;
-        }
-        @media print {
-            body { width: 100% !important; height: 100% !important; }
-            .receipt-card { width: 100% !important; min-height: 270mm !important; }
-        }
-    </style>
-</head>
-<body>
+    return `
     <div class="receipt-card">
         <!-- Header -->
         <div class="header">
@@ -395,70 +431,83 @@ const buildReceiptHtml = (receipt, logoUrl) => {
         </div>
 
         <div class="content-body">
-            <!-- Student & Academic Details -->
-            <div class="info-grid">
-                <div class="info-item">
-                    <span class="info-label">Student Name:</span>
-                    <span class="info-val">${studentName}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Receipt Date:</span>
-                    <span class="info-val">${dateStr}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Father's Name:</span>
-                    <span class="info-val">${fatherName || '-'}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Class / Course:</span>
-                    <span class="info-val">${classNameStr}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Contact Phone:</span>
-                    <span class="info-val">${phone || '-'}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Payment Mode:</span>
-                    <span class="info-val">${paymentMode}</span>
-                </div>
-            </div>
+            <!-- Student & Academic Details (Strict 2-Column Table, Non-collapsible) -->
+            <table class="info-table">
+                <tr>
+                    <td>
+                        <span class="info-label">Student Name:</span>
+                        <span class="info-val">${studentName}</span>
+                    </td>
+                    <td>
+                        <span class="info-label">Receipt Date:</span>
+                        <span class="info-val">${dateStr}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <span class="info-label">Father's Name:</span>
+                        <span class="info-val">${fatherName || '-'}</span>
+                    </td>
+                    <td>
+                        <span class="info-label">Class / Course:</span>
+                        <span class="info-val">${classNameStr}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <span class="info-label">Contact Phone:</span>
+                        <span class="info-val">${phone || '-'}</span>
+                    </td>
+                    <td>
+                        <span class="info-label">Payment Mode:</span>
+                        <span class="info-val">${paymentMode}</span>
+                    </td>
+                </tr>
+                ${studentEmail ? `
+                <tr>
+                    <td colspan="2">
+                        <span class="info-label">Student Email:</span>
+                        <span class="info-val">${studentEmail}</span>
+                    </td>
+                </tr>` : ''}
+            </table>
 
             <!-- Fee Details Table -->
             <table class="fee-table">
                 <thead>
                     <tr>
-                        <th style="width: 50px;">S.No.</th>
+                        <th class="col-sno">S.No.</th>
                         <th>Particulars / विवरण</th>
-                        <th style="width: 150px; text-align: right;">Amount (राशि)</th>
+                        <th class="col-amount">Amount (राशि)</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td>1</td>
+                        <td class="col-sno">1</td>
                         <td>Total Course / Session Tuition Fees</td>
-                        <td>${totalFeesStr}</td>
+                        <td class="col-amount">${totalFeesStr}</td>
                     </tr>
                     ${previouslyPaid > 0 ? `
                     <tr>
-                        <td>2</td>
+                        <td class="col-sno">2</td>
                         <td>Previously Paid Amount (पूर्व में जमा राशि)</td>
-                        <td>${prevPaidStr}</td>
+                        <td class="col-amount">${prevPaidStr}</td>
                     </tr>` : ''}
                     <tr class="paid-row">
-                        <td>${previouslyPaid > 0 ? 3 : 2}</td>
+                        <td class="col-sno">${previouslyPaid > 0 ? 3 : 2}</td>
                         <td>
                             <strong>Amount Received (वर्तमान भुगतान)</strong>
                             <span class="paid-tag">PAID ✓</span>
                         </td>
-                        <td>${currentPaidStr}</td>
+                        <td class="col-amount">${currentPaidStr}</td>
                     </tr>
                     <tr class="due-row">
-                        <td>${previouslyPaid > 0 ? 4 : 3}</td>
+                        <td class="col-sno">${previouslyPaid > 0 ? 4 : 3}</td>
                         <td>
                             Remaining Due Fees (शेष बाकी फीस)
                             ${receipt.remainingFees > 0 && receipt.dueDate ? ` - <span style="font-size:11px; color:#475569;">Next Due Date: ${dueDateStr}</span>` : ''}
                         </td>
-                        <td>${remainingStr}</td>
+                        <td class="col-amount">${remainingStr}</td>
                     </tr>
                 </tbody>
             </table>
@@ -522,62 +571,84 @@ const buildReceiptHtml = (receipt, logoUrl) => {
         <div class="footer-note">
             1. Fees once paid will not be refunded or transferred under any condition. · 2. This is an official computer-generated fee receipt. Thank you!
         </div>
-    </div>
+    </div>`;
+};
+
+// Complete standalone HTML document for iframe printing
+const buildReceiptHtml = (receipt, logoUrl) => {
+    const studentName = receipt.studentName || receipt.student_name || 'Student';
+    return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=794, initial-scale=1">
+    <title>Fee Receipt - ${studentName}</title>
+    <style>${getReceiptCss()}</style>
+</head>
+<body>
+    ${buildReceiptCardHtml(receipt, logoUrl)}
 </body>
 </html>`;
 };
 
 // High-resolution A4 PDF Document Generator (Isolated from mobile viewport)
 const generatePdfDocument = async (receipt) => {
-    // Render in an off-screen iframe fixed at 794px width (Exact A4 210mm at 96 DPI)
-    const iframe = document.createElement('iframe');
-    iframe.id = 'apc-receipt-pdf-render-frame';
-    iframe.style.position = 'fixed';
-    iframe.style.top = '0';
-    iframe.style.left = '-9999px';
-    iframe.style.width = '794px';
-    iframe.style.height = '1123px';
-    iframe.style.border = 'none';
-    iframe.style.zIndex = '-9999';
-    iframe.style.visibility = 'hidden';
-    document.body.appendChild(iframe);
+    const logoUrl = await getLogoDataUrl();
+    const cardHtml = buildReceiptCardHtml(receipt, logoUrl);
+    const cssContent = getReceiptCss();
 
-    const logoUrl = window.location.origin + '/logo.jpeg';
-    const htmlContent = buildReceiptHtml(receipt, logoUrl);
+    // Isolated off-screen container appended directly to document.body
+    // Fixed at exact desktop 794px width (A4 proportion at 96 DPI)
+    const container = document.createElement('div');
+    container.id = 'apc-receipt-pdf-render-root';
+    container.style.cssText = [
+        'position: fixed',
+        'top: 0',
+        'left: 0',
+        'width: 794px !important',
+        'min-width: 794px !important',
+        'max-width: 794px !important',
+        'box-sizing: border-box',
+        'background: #ffffff',
+        'z-index: -99999',
+        'margin: 0',
+        'padding: 0',
+        'pointer-events: none',
+        'overflow: visible'
+    ].join(';');
 
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(htmlContent);
-    doc.close();
+    container.innerHTML = `<style>${cssContent}</style>${cardHtml}`;
+    document.body.appendChild(container);
 
-    // Wait for document & logo image to load
+    // Wait for the logo image if still loading
     await new Promise((resolve) => {
-        const img = doc.querySelector('img.logo');
+        const img = container.querySelector('img.logo');
         if (img && !img.complete) {
-            img.onload = () => setTimeout(resolve, 80);
-            img.onerror = () => setTimeout(resolve, 80);
-            setTimeout(resolve, 800);
+            img.onload = () => setTimeout(resolve, 40);
+            img.onerror = () => setTimeout(resolve, 40);
+            setTimeout(resolve, 500);
         } else {
-            setTimeout(resolve, 150);
+            setTimeout(resolve, 40);
         }
     });
 
-    const cardElement = doc.querySelector('.receipt-card');
-    if (!cardElement) {
-        iframe.remove();
-        throw new Error("Receipt card element not found in render frame");
-    }
+    const cardElement = container.querySelector('.receipt-card') || container;
 
     const canvas = await html2canvas(cardElement, {
-        scale: 2, // 2x DPI for ultra crisp A4 output
+        scale: 2, // 2x DPI for crisp high-resolution A4
         useCORS: true,
         backgroundColor: '#ffffff',
         logging: false,
         width: 794,
-        windowWidth: 794
+        windowWidth: 1200, // Forces desktop layout evaluation
+        scrollX: 0,
+        scrollY: 0,
+        x: 0,
+        y: 0
     });
 
-    iframe.remove();
+    // Remove the temporary container immediately
+    container.remove();
 
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
     const pdf = new jsPDF({
@@ -589,11 +660,24 @@ const generatePdfDocument = async (receipt) => {
     const pageWidth = 210;
     const pageHeight = 297;
     const margin = 8;
-    const renderWidth = pageWidth - (margin * 2); // 194mm
-    const renderHeight = (canvas.height * renderWidth) / canvas.width;
-    const topMargin = Math.max(margin, (pageHeight - renderHeight) / 2);
+    const maxAvailableWidth = pageWidth - (margin * 2); // 194 mm
+    const maxAvailableHeight = pageHeight - (margin * 2); // 281 mm
 
-    pdf.addImage(imgData, 'JPEG', margin, topMargin, renderWidth, renderHeight);
+    const canvasAspect = canvas.width / canvas.height;
+
+    let renderWidth = maxAvailableWidth;
+    let renderHeight = renderWidth / canvasAspect;
+
+    // Strict proportional scaling: NEVER stretch or squash!
+    if (renderHeight > maxAvailableHeight) {
+        renderHeight = maxAvailableHeight;
+        renderWidth = renderHeight * canvasAspect;
+    }
+
+    const xOffset = (pageWidth - renderWidth) / 2;
+    const yOffset = (pageHeight - renderHeight) / 2;
+
+    pdf.addImage(imgData, 'JPEG', xOffset, yOffset, renderWidth, renderHeight, undefined, 'FAST');
 
     const studentName = receipt.studentName || receipt.student_name || 'Student';
     const receiptNo = receipt.receiptNo || (receipt.id ? `REC-${String(receipt.id).padStart(5, '0')}` : 'APC');
@@ -608,7 +692,7 @@ const generatePdfDocument = async (receipt) => {
 };
 
 // Reliable, standalone print mechanism via isolated iframe
-const printReceiptViaIframe = (receipt) => {
+const printReceiptViaIframe = async (receipt) => {
     try {
         const existingFrame = document.getElementById('apc-receipt-print-frame');
         if (existingFrame) existingFrame.remove();
@@ -624,7 +708,7 @@ const printReceiptViaIframe = (receipt) => {
         iframe.style.zIndex = '-9999';
         document.body.appendChild(iframe);
 
-        const logoUrl = window.location.origin + '/logo.jpeg';
+        const logoUrl = await getLogoDataUrl();
         const doc = iframe.contentWindow.document;
         doc.open();
         doc.write(buildReceiptHtml(receipt, logoUrl));
