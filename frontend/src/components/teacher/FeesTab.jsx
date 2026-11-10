@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import styles from './Tabs.module.css';
 import FeeReceiptModal from '../common/FeeReceiptModal';
-import { Printer } from 'lucide-react';
+import { Printer, Search, X } from 'lucide-react';
 
 // Safe fetch helper to completely prevent SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
 const safeFetchJson = async (url, options = {}) => {
@@ -36,6 +36,7 @@ const getBackendUrl = () => {
 
 const FeesTab = () => {
     const [selectedClass, setSelectedClass] = useState('10'); // Default Class 10
+    const [searchQuery, setSearchQuery] = useState('');
     const [students, setStudents] = useState([]);
     const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -132,16 +133,55 @@ const FeesTab = () => {
         return map;
     }, [payments]);
 
-    // Filter students belonging to the selected class
-    const classStudents = useMemo(() => {
+    // Filter students belonging to the selected class and search query
+    const filteredStudents = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
         return students
-            .filter(s => String(s.class_name || s.class || '').trim() === String(selectedClass))
-            .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
-    }, [students, selectedClass]);
+            .filter(s => {
+                const sClass = String(s.class_name || s.class || '').trim();
+                const matchesClass = selectedClass === 'All' || sClass === String(selectedClass);
+                if (!q) return matchesClass;
 
-    // Total remaining for the selected class (students who have fees set)
-    const classTotalRemaining = useMemo(() => {
-        return classStudents.reduce((acc, s) => {
+                const name = (s.full_name || '').toLowerCase();
+                const father = (s.father_name || '').toLowerCase();
+                const phone = (s.phone || '').toLowerCase();
+                const roll = (s.roll_no || s.roll_number || '').toString().toLowerCase();
+                const email = (s.users?.email || '').toLowerCase();
+                const className = sClass.toLowerCase();
+
+                const matchesSearch = name.includes(q) || 
+                                      father.includes(q) || 
+                                      phone.includes(q) || 
+                                      roll.includes(q) || 
+                                      email.includes(q) ||
+                                      className.includes(q);
+
+                return matchesClass && matchesSearch;
+            })
+            .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    }, [students, selectedClass, searchQuery]);
+
+    // Count matches in other classes when a search query is active
+    const otherClassMatchesCount = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q || selectedClass === 'All') return 0;
+        return students.filter(s => {
+            const sClass = String(s.class_name || s.class || '').trim();
+            if (sClass === String(selectedClass)) return false;
+
+            const name = (s.full_name || '').toLowerCase();
+            const father = (s.father_name || '').toLowerCase();
+            const phone = (s.phone || '').toLowerCase();
+            const roll = (s.roll_no || s.roll_number || '').toString().toLowerCase();
+            const email = (s.users?.email || '').toLowerCase();
+
+            return name.includes(q) || father.includes(q) || phone.includes(q) || roll.includes(q) || email.includes(q);
+        }).length;
+    }, [students, selectedClass, searchQuery]);
+
+    // Total remaining for the displayed filtered students
+    const totalRemaining = useMemo(() => {
+        return filteredStudents.reduce((acc, s) => {
             const total = Number(s.total_fees) || 0;
             if (total <= 0) return acc;
             const sPayments = studentPaymentsMap[s.id] || [];
@@ -149,7 +189,7 @@ const FeesTab = () => {
             const remaining = Math.max(0, total - paid);
             return acc + remaining;
         }, 0);
-    }, [classStudents, studentPaymentsMap]);
+    }, [filteredStudents, studentPaymentsMap]);
 
     // Toggle view records
     const toggleRecords = (studentId) => {
@@ -433,7 +473,7 @@ const FeesTab = () => {
         }
     };
 
-    const classList = ['6', '7', '8', '9', '10', '11', '12'];
+    const classList = ['All', '6', '7', '8', '9', '10', '11', '12'];
     const today = getTodayString();
 
     return (
@@ -446,40 +486,139 @@ const FeesTab = () => {
                 </p>
             </div>
 
-            {/* A) Class Selector Buttons */}
-            <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
-                {classList.map(cls => {
-                    const isSelected = selectedClass === cls;
-                    return (
+            {/* Student Search and Filters Controls */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {/* Search Bar Input */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    position: 'relative',
+                    width: '100%',
+                    maxWidth: '560px'
+                }}>
+                    <Search 
+                        size={18} 
+                        style={{
+                            position: 'absolute',
+                            left: '12px',
+                            color: 'var(--color-text-muted)',
+                            pointerEvents: 'none'
+                        }} 
+                    />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search student by name, father name, phone, class..."
+                        style={{
+                            width: '100%',
+                            padding: '0.62rem 2.2rem 0.62rem 2.4rem',
+                            borderRadius: '10px',
+                            border: '1.5px solid var(--color-border)',
+                            background: 'var(--color-surface)',
+                            color: 'var(--color-text-main)',
+                            fontSize: '0.92rem',
+                            outline: 'none',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                            transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = 'var(--color-primary)'}
+                        onBlur={(e) => e.target.style.borderColor = 'var(--color-border)'}
+                    />
+                    {searchQuery && (
                         <button
-                            key={cls}
-                            onClick={() => {
-                                setSelectedClass(cls);
-                                setActiveForm(null);
-                            }}
+                            onClick={() => setSearchQuery('')}
+                            title="Clear search"
+                            type="button"
                             style={{
-                                padding: '0.55rem 1.25rem',
-                                borderRadius: '8px',
-                                border: isSelected ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
-                                background: isSelected ? 'var(--color-primary)' : 'var(--color-surface)',
-                                color: isSelected ? '#ffffff' : 'var(--color-text-main)',
-                                fontWeight: isSelected ? '700' : '500',
-                                fontSize: '0.9rem',
+                                position: 'absolute',
+                                right: '10px',
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--color-text-muted)',
                                 cursor: 'pointer',
-                                whiteSpace: 'nowrap',
-                                transition: 'all 0.2s ease',
-                                boxShadow: isSelected ? '0 2px 8px rgba(59, 130, 246, 0.3)' : 'none'
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '4px'
                             }}
                         >
-                            Class {cls}
+                            <X size={16} />
                         </button>
-                    );
-                })}
-            </div>
+                    )}
+                </div>
 
-            {/* Summary Line under class buttons */}
-            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.95rem', fontWeight: '500', margin: '-0.25rem 0 0.25rem 0' }}>
-                Class {selectedClass} · {classStudents.length} students · Total remaining: {formatCurrency(classTotalRemaining)}
+                {/* Class Selector Buttons */}
+                <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+                    {classList.map(cls => {
+                        const isSelected = selectedClass === cls;
+                        return (
+                            <button
+                                key={cls}
+                                onClick={() => {
+                                    setSelectedClass(cls);
+                                    setActiveForm(null);
+                                }}
+                                style={{
+                                    padding: '0.5rem 1.15rem',
+                                    borderRadius: '8px',
+                                    border: isSelected ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
+                                    background: isSelected ? 'var(--color-primary)' : 'var(--color-surface)',
+                                    color: isSelected ? '#ffffff' : 'var(--color-text-main)',
+                                    fontWeight: isSelected ? '700' : '500',
+                                    fontSize: '0.88rem',
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                    transition: 'all 0.2s ease',
+                                    boxShadow: isSelected ? '0 2px 8px rgba(59, 130, 246, 0.3)' : 'none'
+                                }}
+                            >
+                                {cls === 'All' ? 'All Classes' : `Class ${cls}`}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Other Classes Match Hint */}
+                {otherClassMatchesCount > 0 && (
+                    <div style={{
+                        background: 'rgba(224, 138, 0, 0.1)',
+                        border: '1px solid rgba(224, 138, 0, 0.25)',
+                        padding: '0.45rem 0.85rem',
+                        borderRadius: '8px',
+                        fontSize: '0.85rem',
+                        color: 'var(--color-text-main)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '0.5rem'
+                    }}>
+                        <span>
+                            🔍 <strong>{otherClassMatchesCount}</strong> student{otherClassMatchesCount > 1 ? 's' : ''} found in other classes matching "<strong>{searchQuery}</strong>".
+                        </span>
+                        <button
+                            onClick={() => setSelectedClass('All')}
+                            type="button"
+                            style={{
+                                background: 'var(--color-primary)',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '0.25rem 0.65rem',
+                                borderRadius: '6px',
+                                fontSize: '0.8rem',
+                                fontWeight: '600',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            View in All Classes
+                        </button>
+                    </div>
+                )}
+
+                {/* Summary Line under class buttons */}
+                <div style={{ color: 'var(--color-text-muted)', fontSize: '0.92rem', fontWeight: '500' }}>
+                    {selectedClass === 'All' ? 'All Classes' : `Class ${selectedClass}`} · {filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''} {searchQuery ? `matching "${searchQuery}"` : ''} · Total remaining: {formatCurrency(totalRemaining)}
+                </div>
             </div>
 
             {/* Student Cards List */}
@@ -487,13 +626,36 @@ const FeesTab = () => {
                 <div className="glass-panel" style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
                     Loading students and payments...
                 </div>
-            ) : classStudents.length === 0 ? (
-                <div className="glass-panel" style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                    No students in this class
+            ) : filteredStudents.length === 0 ? (
+                <div className="glass-panel" style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--color-text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                    <div>
+                        {searchQuery 
+                            ? `No students found matching "${searchQuery}" in ${selectedClass === 'All' ? 'any class' : `Class ${selectedClass}`}.`
+                            : `No students in ${selectedClass === 'All' ? 'the institute' : `Class ${selectedClass}`}`
+                        }
+                    </div>
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery('')}
+                            type="button"
+                            style={{
+                                background: 'var(--color-primary)',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '0.35rem 0.85rem',
+                                borderRadius: '6px',
+                                fontSize: '0.85rem',
+                                fontWeight: '600',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Clear Search Filter
+                        </button>
+                    )}
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {classStudents.map(student => {
+                    {filteredStudents.map(student => {
                         const totalFees = Number(student.total_fees) || 0;
                         const hasFeesSet = totalFees > 0;
                         const studentPayments = (studentPaymentsMap[student.id] || [])
@@ -552,14 +714,31 @@ const FeesTab = () => {
                                             {student.full_name ? student.full_name.charAt(0).toUpperCase() : 'S'}
                                         </div>
                                         <div>
-                                            <div style={{ fontWeight: '600', color: 'var(--color-text-main)', fontSize: '1.05rem' }}>
-                                                {student.full_name ?? 'Unknown'}
+                                            <div style={{ fontWeight: '600', color: 'var(--color-text-main)', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                <span>{student.full_name ?? 'Unknown'}</span>
+                                                {(selectedClass === 'All' || searchQuery) && (
+                                                    <span style={{
+                                                        fontSize: '0.72rem',
+                                                        padding: '2px 8px',
+                                                        borderRadius: '6px',
+                                                        background: 'rgba(31, 127, 209, 0.1)',
+                                                        border: '1px solid rgba(31, 127, 209, 0.25)',
+                                                        color: 'var(--color-secondary, #1F7FD1)',
+                                                        fontWeight: '700'
+                                                    }}>
+                                                        Class {student.class_name || student.class || '-'}
+                                                    </span>
+                                                )}
+                                                {student.father_name && (
+                                                    <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: '400' }}>
+                                                        (S/O {student.father_name})
+                                                    </span>
+                                                )}
                                             </div>
-                                            {student.users?.email && (
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                                                    {student.users.email}
-                                                </div>
-                                            )}
+                                            <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px', flexWrap: 'wrap' }}>
+                                                {student.phone && <span>📞 {student.phone}</span>}
+                                                {student.users?.email && <span>✉️ {student.users.email}</span>}
+                                            </div>
                                         </div>
                                     </div>
 

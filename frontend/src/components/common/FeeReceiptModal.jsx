@@ -1,7 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import styles from './FeeReceiptModal.module.css';
-import { Printer, X } from 'lucide-react';
+import { Printer, X, Share2, MessageCircle, Copy, Check, Download, Loader2 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
 // Number to Words in Indian format (e.g. 5000 -> Five Thousand Rupees Only)
 const numberToWordsIndian = (num) => {
@@ -38,6 +40,91 @@ const formatDate = (dateStr) => {
     } catch {
         return String(dateStr);
     }
+};
+
+// Clean text generator for WhatsApp & Direct Sharing
+const generateReceiptShareText = (receipt) => {
+    const studentName = receipt.studentName || 'Student';
+    const fatherName = receipt.fatherName && receipt.fatherName !== '-' ? `\n👨‍👦 *Father's Name:* ${receipt.fatherName}` : '';
+    const rawClass = receipt.className || receipt.class || '';
+    const classStr = rawClass ? (String(rawClass).toLowerCase().includes('class') ? rawClass : `Class ${rawClass}`) : '';
+    const receiptNo = receipt.receiptNo || (receipt.id ? `REC-${String(receipt.id).padStart(5, '0')}` : `APC-${Date.now().toString().slice(-6)}`);
+    const dateStr = formatDate(receipt.date || new Date().toISOString());
+    const totalFees = Number(receipt.totalFees || 0);
+    const currentPaid = Number(receipt.currentPaid || receipt.amount || receipt.paidFees || 0);
+    const previouslyPaid = Math.max(0, (Number(receipt.totalPaid || currentPaid)) - currentPaid);
+    const remainingFees = Number(receipt.remainingFees !== undefined ? receipt.remainingFees : Math.max(0, totalFees - previouslyPaid - currentPaid));
+    const dueDateStr = receipt.dueDate ? formatDate(receipt.dueDate) : '';
+    const paymentMode = receipt.paymentMode || 'Cash / Online UPI';
+    const isStatement = Boolean(receipt.isStatement);
+
+    return `🧾 *A.P. COACHING CLASSES*
+*${isStatement ? 'FEES STATEMENT / विवरण' : 'OFFICIAL FEE RECEIPT / फीस रसीद'}*
+━━━━━━━━━━━━━━━━━━━━
+👤 *Student:* ${studentName}${fatherName}
+🏫 *Class:* ${classStr || 'General'}
+🔢 *Receipt No:* ${receiptNo}
+📅 *Date:* ${dateStr}
+
+💰 *Payment Details:*
+• Total Course Fees: ₹${totalFees.toLocaleString('en-IN')}${previouslyPaid > 0 ? `\n• Previously Paid: ₹${previouslyPaid.toLocaleString('en-IN')}` : ''}
+• *Amount Received: ₹${currentPaid.toLocaleString('en-IN')} (PAID ✓)*
+• *Remaining Due: ₹${remainingFees.toLocaleString('en-IN')}*${remainingFees > 0 && dueDateStr ? `\n• Next Due Date: ${dueDateStr}` : ''}
+• Payment Mode: ${paymentMode}
+
+✅ *Status:* Official payment recorded & verified in coaching system.
+━━━━━━━━━━━━━━━━━━━━
+📍 *A.P. Coaching Classes | Anil Sir Campus*
+📞 *Director Helpline:* +91 9981182741
+✨ *Concept Clear, Future Secure*`;
+};
+
+// High-resolution A4 PDF Document Generator
+const generatePdfDocument = async (cardElement, studentName, receiptNo) => {
+    if (!cardElement) throw new Error("Receipt DOM element not available");
+
+    const canvas = await html2canvas(cardElement, {
+        scale: 2, // 2x DPI for crisp high-resolution text and borders
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        onclone: (clonedDoc) => {
+            const card = clonedDoc.getElementById('receipt-card-element') || clonedDoc.querySelector(`.${styles.receiptCard}`);
+            if (card) {
+                card.style.maxHeight = 'none';
+                card.style.overflow = 'visible';
+                card.style.height = 'auto';
+                card.style.boxShadow = 'none';
+            }
+        }
+    });
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+    });
+
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const margin = 8;
+    const renderWidth = pageWidth - (margin * 2); // 194mm
+    const renderHeight = (canvas.height * renderWidth) / canvas.width;
+
+    const topMargin = renderHeight < (pageHeight - (margin * 2)) 
+        ? Math.max(margin, (pageHeight - renderHeight) / 2) 
+        : margin;
+
+    pdf.addImage(imgData, 'JPEG', margin, topMargin, renderWidth, Math.min(renderHeight, pageHeight - (margin * 2)));
+
+    const safeName = (studentName || 'Student').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeRec = (receiptNo || 'APC').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `Fee_Receipt_${safeName}_${safeRec}.pdf`;
+    const blob = pdf.output('blob');
+    const file = new File([blob], filename, { type: 'application/pdf' });
+
+    return { pdf, blob, file, filename };
 };
 
 // Reliable, standalone print mechanism via isolated iframe
@@ -535,17 +622,31 @@ const printReceiptViaIframe = (receipt) => {
 };
 
 const FeeReceiptModal = ({ isOpen, onClose, receipt }) => {
+    const cardRef = useRef(null);
+    const [copied, setCopied] = useState(false);
+    const [toastMsg, setToastMsg] = useState('');
+    const [showShareMenu, setShowShareMenu] = useState(false);
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (e.key === 'Escape') onClose();
+            if (e.key === 'Escape') {
+                if (showShareMenu) setShowShareMenu(false);
+                else onClose();
+            }
         };
         if (isOpen) {
             window.addEventListener('keydown', handleKeyDown);
         }
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    }, [isOpen, onClose, showShareMenu]);
 
     if (!isOpen || !receipt) return null;
+
+    const showToast = (msg) => {
+        setToastMsg(msg);
+        setTimeout(() => setToastMsg(''), 4000);
+    };
 
     const handlePrint = () => {
         printReceiptViaIframe(receipt);
@@ -572,6 +673,133 @@ const FeeReceiptModal = ({ isOpen, onClose, receipt }) => {
     // Previously paid before this payment
     const previouslyPaid = Math.max(0, (totalPaid || currentPaid) - currentPaid);
 
+    const getCleanPhone = (phoneStr) => {
+        if (!phoneStr) return '';
+        const digits = String(phoneStr).replace(/\D/g, '');
+        if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+        if (digits.length === 10) return digits;
+        if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+        return digits.length >= 10 ? digits.slice(-10) : '';
+    };
+
+    const cleanPhone = getCleanPhone(phone);
+
+    const handleWhatsAppClick = () => {
+        if (cleanPhone) {
+            setShowShareMenu(true);
+        } else {
+            handleWhatsAppPdf('');
+        }
+    };
+
+    const handleWhatsAppPdf = async (targetPhone = '') => {
+        try {
+            setIsGeneratingPdf(true);
+            showToast('📄 Generating Official PDF Receipt...');
+            const { file, filename, pdf } = await generatePdfDocument(cardRef.current, studentName, receiptNo);
+            setIsGeneratingPdf(false);
+
+            // 1. Mobile browsers (Android/iOS) with native file sharing support: sends the real PDF document straight to WhatsApp!
+            if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: `Fee Receipt - ${studentName}`,
+                        text: `A.P. Coaching Classes Fee Receipt for ${studentName}`
+                    });
+                    showToast('✓ PDF shared successfully!');
+                    setShowShareMenu(false);
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') return;
+                    console.warn("navigator.share failed, using fallback:", err);
+                }
+            }
+
+            // 2. Desktop WhatsApp Web / PC fallback: automatically download the PDF file and open WhatsApp chat
+            pdf.save(filename);
+
+            const text = `Namaste! A.P. Coaching Classes Fee Receipt for ${studentName} (Class ${className || '-'}). Receipt No: ${receiptNo}. Please find the attached PDF receipt file.`;
+            const encoded = encodeURIComponent(text);
+            const phoneToUse = targetPhone !== undefined ? targetPhone : cleanPhone;
+            let waUrl = `https://api.whatsapp.com/send?text=${encoded}`;
+            if (phoneToUse) {
+                waUrl = `https://wa.me/91${phoneToUse}?text=${encoded}`;
+            }
+            window.open(waUrl, '_blank');
+
+            showToast(`📄 PDF downloaded (${filename})! WhatsApp chat open ho gaya hai, download folder se PDF attach karke send karein.`);
+            setShowShareMenu(false);
+        } catch (err) {
+            console.error("PDF generation/sharing error:", err);
+            setIsGeneratingPdf(false);
+            showToast("PDF generate karne me samasya aayi. Kripya Print option se PDF save karein.");
+        }
+    };
+
+    const handleDownloadPdf = async () => {
+        try {
+            setIsGeneratingPdf(true);
+            showToast('📄 Generating Fee Receipt PDF...');
+            const { pdf, filename } = await generatePdfDocument(cardRef.current, studentName, receiptNo);
+            pdf.save(filename);
+            setIsGeneratingPdf(false);
+            showToast(`✓ PDF downloaded: ${filename}`);
+            setShowShareMenu(false);
+        } catch (err) {
+            console.error("Download PDF error:", err);
+            setIsGeneratingPdf(false);
+            showToast("PDF generate karne me samasya aayi.");
+        }
+    };
+
+    const handleSharePdf = async () => {
+        try {
+            setIsGeneratingPdf(true);
+            showToast('📄 Preparing PDF for sharing...');
+            const { file, filename, pdf } = await generatePdfDocument(cardRef.current, studentName, receiptNo);
+            setIsGeneratingPdf(false);
+
+            if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: `Fee Receipt - ${studentName}`,
+                        text: `A.P. Coaching Classes Fee Receipt for ${studentName}`
+                    });
+                    setShowShareMenu(false);
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') return;
+                }
+            }
+            pdf.save(filename);
+            showToast(`✓ PDF downloaded to device: ${filename}`);
+            setShowShareMenu(false);
+        } catch (err) {
+            console.error("Share PDF error:", err);
+            setIsGeneratingPdf(false);
+            showToast("PDF generate karne me samasya aayi.");
+        }
+    };
+
+    const handleCopyText = () => {
+        const text = generateReceiptShareText(receipt);
+        try {
+            if (navigator?.clipboard?.writeText) {
+                navigator.clipboard.writeText(text);
+                setCopied(true);
+                showToast('✓ Receipt text summary copied to clipboard!');
+                setTimeout(() => setCopied(false), 2000);
+            } else {
+                showToast('Unable to copy automatically.');
+            }
+        } catch {
+            showToast('Unable to copy automatically.');
+        }
+        setShowShareMenu(false);
+    };
+
     const modalContent = (
         <div className={styles.modalOverlay} onClick={onClose}>
             <div className={styles.modalContainer} onClick={(e) => e.stopPropagation()}>
@@ -582,20 +810,49 @@ const FeeReceiptModal = ({ isOpen, onClose, receipt }) => {
                             {isStatement ? 'Fee Statement Preview' : 'Fee Receipt Preview (रसीद)'}
                         </span>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <button onClick={handlePrint} className={styles.printBtn} type="button">
-                            <Printer size={18} />
-                            Print Receipt (रसीद प्रिंट करें)
+                    <div className={styles.actionBtnGroup}>
+                        <button 
+                            onClick={handleWhatsAppClick} 
+                            disabled={isGeneratingPdf}
+                            className={styles.whatsappBtn} 
+                            type="button"
+                            title="WhatsApp par PDF receipt send karein"
+                        >
+                            {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />}
+                            <span>WhatsApp PDF</span>
                         </button>
-                        <button onClick={onClose} className={styles.closeBtn} type="button">
-                            <X size={18} />
-                            Close
+                        <button 
+                            onClick={handleDownloadPdf} 
+                            disabled={isGeneratingPdf}
+                            className={styles.downloadBtn} 
+                            type="button"
+                            title="Receipt ko PDF file ke roop me download karein"
+                        >
+                            {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                            <span>Download PDF</span>
+                        </button>
+                        <button 
+                            onClick={handleSharePdf} 
+                            disabled={isGeneratingPdf}
+                            className={styles.shareBtn} 
+                            type="button"
+                            title="Device apps me PDF share karein"
+                        >
+                            <Share2 size={16} />
+                            <span>Share</span>
+                        </button>
+                        <button onClick={handlePrint} className={styles.printBtn} type="button" title="Full A4 page print karein ya save karein">
+                            <Printer size={16} />
+                            <span>Print</span>
+                        </button>
+                        <button onClick={onClose} className={styles.closeBtn} type="button" title="Close">
+                            <X size={17} />
                         </button>
                     </div>
                 </div>
 
                 {/* Visible Receipt Card */}
-                <div className={styles.receiptCard}>
+                <div id="receipt-card-element" ref={cardRef} className={styles.receiptCard}>
                     {/* Header */}
                     <div className={styles.headerSection}>
                         <div className={styles.logoArea}>
@@ -770,6 +1027,84 @@ const FeeReceiptModal = ({ isOpen, onClose, receipt }) => {
                         <div>2. This is an official computer-generated fee receipt. Thank you!</div>
                     </div>
                 </div>
+
+                {/* Share Options Popup Modal */}
+                {showShareMenu && (
+                    <div className={styles.shareMenuOverlay} onClick={() => setShowShareMenu(false)}>
+                        <div className={styles.shareMenuCard} onClick={(e) => e.stopPropagation()}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                                <div style={{ fontWeight: '700', color: '#1B2240', fontSize: '1rem' }}>Share Fee Receipt</div>
+                                <button onClick={() => setShowShareMenu(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                                    <X size={18} />
+                                </button>
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                                Student: <strong style={{ color: '#0f172a' }}>{studentName}</strong> {className && className !== '-' ? `(${String(className).toLowerCase().includes('class') ? className : `Class ${className}`})` : ''}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+                                {cleanPhone && (
+                                    <button
+                                        onClick={() => handleWhatsAppPdf(cleanPhone)}
+                                        className={styles.whatsappBtn}
+                                        style={{ justifyContent: 'center', padding: '0.65rem' }}
+                                        type="button"
+                                        disabled={isGeneratingPdf}
+                                    >
+                                        {isGeneratingPdf ? <Loader2 size={18} className="animate-spin" /> : <MessageCircle size={18} />}
+                                        <span>Send PDF to Student (+91 {cleanPhone})</span>
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => handleWhatsAppPdf('')}
+                                    className={styles.whatsappBtn}
+                                    style={{ background: '#25D366', justifyContent: 'center', padding: '0.65rem' }}
+                                    type="button"
+                                    disabled={isGeneratingPdf}
+                                >
+                                    {isGeneratingPdf ? <Loader2 size={18} className="animate-spin" /> : <MessageCircle size={18} />}
+                                    <span>Share PDF to Any WhatsApp Chat / Group</span>
+                                </button>
+                                <button
+                                    onClick={handleDownloadPdf}
+                                    className={styles.downloadBtn}
+                                    style={{ justifyContent: 'center', padding: '0.65rem' }}
+                                    type="button"
+                                    disabled={isGeneratingPdf}
+                                >
+                                    {isGeneratingPdf ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                                    <span>Download Receipt PDF File</span>
+                                </button>
+                                <button
+                                    onClick={handleSharePdf}
+                                    className={styles.shareBtn}
+                                    style={{ justifyContent: 'center', padding: '0.65rem' }}
+                                    type="button"
+                                    disabled={isGeneratingPdf}
+                                >
+                                    <Share2 size={18} />
+                                    <span>Share PDF via Device (Other Apps)</span>
+                                </button>
+                                <button
+                                    onClick={handleCopyText}
+                                    className={styles.copyBtn}
+                                    style={{ justifyContent: 'center', padding: '0.65rem' }}
+                                    type="button"
+                                >
+                                    {copied ? <Check size={16} color="#10b981" /> : <Copy size={16} />}
+                                    <span>{copied ? 'Copied to Clipboard!' : 'Copy Receipt Summary (Text)'}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Floating Toast Notification */}
+                {toastMsg && (
+                    <div className={styles.toastNotification}>
+                        <Check size={16} color="#10b981" />
+                        <span>{toastMsg}</span>
+                    </div>
+                )}
             </div>
         </div>
     );
