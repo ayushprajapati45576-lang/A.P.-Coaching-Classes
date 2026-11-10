@@ -79,95 +79,27 @@ const generateReceiptShareText = (receipt) => {
 ✨ *Concept Clear, Future Secure*`;
 };
 
-// High-resolution A4 PDF Document Generator
-const generatePdfDocument = async (cardElement, studentName, receiptNo) => {
-    if (!cardElement) throw new Error("Receipt DOM element not available");
+// Build complete, responsive-isolated A4 Receipt HTML
+const buildReceiptHtml = (receipt, logoUrl) => {
+    const previouslyPaid = Math.max(0, (receipt.totalPaid || receipt.currentPaid) - receipt.currentPaid);
+    const receiptNo = receipt.receiptNo || (receipt.id ? `REC-${String(receipt.id).padStart(5, '0')}` : `APC-${Date.now().toString().slice(-6)}`);
+    const dateStr = formatDate(receipt.date || new Date().toISOString());
+    const studentName = receipt.studentName || receipt.student_name || 'Student';
+    const fatherName = receipt.fatherName || '-';
+    const rawClass = receipt.className || receipt.class || '';
+    const classNameStr = rawClass ? (String(rawClass).toLowerCase().includes('class') ? rawClass : `Class ${rawClass}`) : '-';
+    const phone = receipt.phone || '-';
+    const totalFeesStr = formatCurrency(receipt.totalFees);
+    const currentPaidStr = formatCurrency(receipt.currentPaid);
+    const prevPaidStr = formatCurrency(previouslyPaid);
+    const remainingStr = formatCurrency(receipt.remainingFees);
+    const inWordsStr = numberToWordsIndian(receipt.currentPaid);
+    const dueDateStr = receipt.dueDate ? formatDate(receipt.dueDate) : '-';
+    const paymentMode = receipt.paymentMode || 'Cash / Online UPI';
+    const isStatement = Boolean(receipt.isStatement);
+    const paymentsList = receipt.paymentsList || [];
 
-    const canvas = await html2canvas(cardElement, {
-        scale: 2, // 2x DPI for crisp high-resolution text and borders
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        onclone: (clonedDoc) => {
-            const card = clonedDoc.getElementById('receipt-card-element') || clonedDoc.querySelector(`.${styles.receiptCard}`);
-            if (card) {
-                card.style.maxHeight = 'none';
-                card.style.overflow = 'visible';
-                card.style.height = 'auto';
-                card.style.boxShadow = 'none';
-            }
-        }
-    });
-
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-    const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-    });
-
-    const pageWidth = 210;
-    const pageHeight = 297;
-    const margin = 8;
-    const renderWidth = pageWidth - (margin * 2); // 194mm
-    const renderHeight = (canvas.height * renderWidth) / canvas.width;
-
-    const topMargin = renderHeight < (pageHeight - (margin * 2)) 
-        ? Math.max(margin, (pageHeight - renderHeight) / 2) 
-        : margin;
-
-    pdf.addImage(imgData, 'JPEG', margin, topMargin, renderWidth, Math.min(renderHeight, pageHeight - (margin * 2)));
-
-    const safeName = (studentName || 'Student').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const safeRec = (receiptNo || 'APC').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `Fee_Receipt_${safeName}_${safeRec}.pdf`;
-    const blob = pdf.output('blob');
-    const file = new File([blob], filename, { type: 'application/pdf' });
-
-    return { pdf, blob, file, filename };
-};
-
-// Reliable, standalone print mechanism via isolated iframe
-const printReceiptViaIframe = (receipt) => {
-    try {
-        const existingFrame = document.getElementById('apc-receipt-print-frame');
-        if (existingFrame) existingFrame.remove();
-
-        const iframe = document.createElement('iframe');
-        iframe.id = 'apc-receipt-print-frame';
-        iframe.style.position = 'fixed';
-        iframe.style.top = '-9999px';
-        iframe.style.left = '-9999px';
-        iframe.style.width = '210mm';
-        iframe.style.height = '297mm';
-        iframe.style.border = 'none';
-        iframe.style.zIndex = '-9999';
-        document.body.appendChild(iframe);
-
-        const previouslyPaid = Math.max(0, (receipt.totalPaid || receipt.currentPaid) - receipt.currentPaid);
-        const receiptNo = receipt.receiptNo || `APC-${Date.now().toString().slice(-6)}`;
-        const dateStr = formatDate(receipt.date || new Date().toISOString());
-        const studentName = receipt.studentName || 'Student';
-        const fatherName = receipt.fatherName || '-';
-        const rawClass = receipt.className || receipt.class || '';
-        const classNameStr = rawClass ? (String(rawClass).toLowerCase().includes('class') ? rawClass : `Class ${rawClass}`) : '-';
-        const phone = receipt.phone || '-';
-        const email = receipt.email || '';
-        const totalFeesStr = formatCurrency(receipt.totalFees);
-        const currentPaidStr = formatCurrency(receipt.currentPaid);
-        const prevPaidStr = formatCurrency(previouslyPaid);
-        const remainingStr = formatCurrency(receipt.remainingFees);
-        const inWordsStr = numberToWordsIndian(receipt.currentPaid);
-        const dueDateStr = receipt.dueDate ? formatDate(receipt.dueDate) : '-';
-        const paymentMode = receipt.paymentMode || 'Cash / Online UPI';
-        const isStatement = Boolean(receipt.isStatement);
-        const paymentsList = receipt.paymentsList || [];
-        const logoUrl = window.location.origin + '/logo.jpeg';
-
-        const doc = iframe.contentWindow.document;
-        doc.open();
-        doc.write(`
-<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -186,8 +118,7 @@ const printReceiptViaIframe = (receipt) => {
             color-adjust: exact !important;
         }
         html, body {
-            width: 100%;
-            height: 100%;
+            width: 794px;
             margin: 0;
             padding: 0;
             background: #ffffff;
@@ -196,26 +127,24 @@ const printReceiptViaIframe = (receipt) => {
         }
         .receipt-card {
             box-sizing: border-box;
-            width: 100%;
-            min-height: 270mm;
+            width: 794px;
+            min-height: 1120px;
             border: 2.5px solid #1B2240;
             border-radius: 10px;
-            padding: 18px 22px 14px 22px;
+            padding: 24px 28px 20px 28px;
             position: relative;
             background: #ffffff;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            page-break-inside: avoid;
-            break-inside: avoid;
         }
         .receipt-card::before {
             content: '';
             position: absolute;
-            top: 5px;
-            left: 5px;
-            right: 5px;
-            bottom: 5px;
+            top: 6px;
+            left: 6px;
+            right: 6px;
+            bottom: 6px;
             border: 1px solid rgba(27, 34, 64, 0.22);
             border-radius: 7px;
             pointer-events: none;
@@ -296,28 +225,28 @@ const printReceiptViaIframe = (receipt) => {
         .content-body {
             display: flex;
             flex-direction: column;
-            gap: 11px;
+            gap: 12px;
             flex: 1;
             justify-content: space-around;
-            padding: 6px 0;
+            padding: 10px 0;
         }
         .info-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 7px 20px;
+            gap: 8px 20px;
             background: #f8fafc !important;
             border: 1px solid #cbd5e1;
             border-radius: 8px;
-            padding: 9px 15px;
+            padding: 10px 16px;
         }
         .info-item {
             display: flex;
-            font-size: 13px;
+            font-size: 13.5px;
             line-height: 1.35;
         }
         .info-label {
             color: #64748b;
-            width: 120px;
+            width: 125px;
             font-weight: 600;
             flex-shrink: 0;
         }
@@ -332,18 +261,18 @@ const printReceiptViaIframe = (receipt) => {
         .fee-table th {
             background: #1B2240 !important;
             color: #ffffff !important;
-            font-size: 12.5px;
+            font-size: 13px;
             font-weight: 700;
-            padding: 8px 12px;
+            padding: 9px 12px;
             text-align: left;
         }
         .fee-table th:last-child {
             text-align: right;
         }
         .fee-table td {
-            padding: 9px 12px;
+            padding: 10px 12px;
             border-bottom: 1px solid #e2e8f0;
-            font-size: 13px;
+            font-size: 13.5px;
             color: #1e293b;
         }
         .fee-table td:last-child {
@@ -355,16 +284,16 @@ const printReceiptViaIframe = (receipt) => {
         .paid-row td {
             color: #065f46 !important;
             font-weight: 800;
-            font-size: 14px;
+            font-size: 14.5px;
         }
         .paid-tag {
             background: #10b981 !important;
             color: #ffffff !important;
-            font-size: 10.5px;
+            font-size: 11px;
             font-weight: 800;
-            padding: 2px 8px;
+            padding: 2px 9px;
             border-radius: 99px;
-            margin-left: 6px;
+            margin-left: 8px;
             vertical-align: middle;
         }
         .due-row td {
@@ -375,8 +304,8 @@ const printReceiptViaIframe = (receipt) => {
             background: #f8fafc !important;
             border: 1px dashed #cbd5e1;
             border-radius: 8px;
-            padding: 8px 14px;
-            font-size: 12.5px;
+            padding: 9px 14px;
+            font-size: 13px;
             line-height: 1.5;
             display: flex;
             flex-direction: column;
@@ -386,22 +315,22 @@ const printReceiptViaIframe = (receipt) => {
             background: #fcfcfd !important;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
-            padding: 7px 12px;
-            font-size: 10.5px;
+            padding: 8px 14px;
+            font-size: 11px;
             color: #475569;
-            line-height: 1.4;
+            line-height: 1.45;
         }
         .terms-title {
             font-weight: 700;
             color: #1B2240;
-            margin-bottom: 2px;
-            font-size: 11px;
+            margin-bottom: 3px;
+            font-size: 11.5px;
         }
         .bottom-row {
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
-            padding-top: 4px;
+            padding-top: 6px;
         }
         .stamp-box {
             width: 140px;
@@ -419,7 +348,7 @@ const printReceiptViaIframe = (receipt) => {
         }
         .sign-text {
             font-family: 'Brush Script MT', 'Dancing Script', 'Segoe Script', cursive, sans-serif;
-            font-size: 22px;
+            font-size: 23px;
             color: #1B2240;
             font-weight: bold;
         }
@@ -434,10 +363,14 @@ const printReceiptViaIframe = (receipt) => {
         }
         .footer-note {
             border-top: 1px solid #e2e8f0;
-            padding-top: 5px;
-            font-size: 10px;
+            padding-top: 6px;
+            font-size: 10.5px;
             color: #94a3b8;
             text-align: center;
+        }
+        @media print {
+            body { width: 100% !important; height: 100% !important; }
+            .receipt-card { width: 100% !important; min-height: 270mm !important; }
         }
     </style>
 </head>
@@ -591,8 +524,110 @@ const printReceiptViaIframe = (receipt) => {
         </div>
     </div>
 </body>
-</html>
-        `);
+</html>`;
+};
+
+// High-resolution A4 PDF Document Generator (Isolated from mobile viewport)
+const generatePdfDocument = async (receipt) => {
+    // Render in an off-screen iframe fixed at 794px width (Exact A4 210mm at 96 DPI)
+    const iframe = document.createElement('iframe');
+    iframe.id = 'apc-receipt-pdf-render-frame';
+    iframe.style.position = 'fixed';
+    iframe.style.top = '0';
+    iframe.style.left = '-9999px';
+    iframe.style.width = '794px';
+    iframe.style.height = '1123px';
+    iframe.style.border = 'none';
+    iframe.style.zIndex = '-9999';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
+    const logoUrl = window.location.origin + '/logo.jpeg';
+    const htmlContent = buildReceiptHtml(receipt, logoUrl);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
+
+    // Wait for document & logo image to load
+    await new Promise((resolve) => {
+        const img = doc.querySelector('img.logo');
+        if (img && !img.complete) {
+            img.onload = () => setTimeout(resolve, 80);
+            img.onerror = () => setTimeout(resolve, 80);
+            setTimeout(resolve, 800);
+        } else {
+            setTimeout(resolve, 150);
+        }
+    });
+
+    const cardElement = doc.querySelector('.receipt-card');
+    if (!cardElement) {
+        iframe.remove();
+        throw new Error("Receipt card element not found in render frame");
+    }
+
+    const canvas = await html2canvas(cardElement, {
+        scale: 2, // 2x DPI for ultra crisp A4 output
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width: 794,
+        windowWidth: 794
+    });
+
+    iframe.remove();
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+    });
+
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const margin = 8;
+    const renderWidth = pageWidth - (margin * 2); // 194mm
+    const renderHeight = (canvas.height * renderWidth) / canvas.width;
+    const topMargin = Math.max(margin, (pageHeight - renderHeight) / 2);
+
+    pdf.addImage(imgData, 'JPEG', margin, topMargin, renderWidth, renderHeight);
+
+    const studentName = receipt.studentName || receipt.student_name || 'Student';
+    const receiptNo = receipt.receiptNo || (receipt.id ? `REC-${String(receipt.id).padStart(5, '0')}` : 'APC');
+    const safeName = studentName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeRec = receiptNo.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `Fee_Receipt_${safeName}_${safeRec}.pdf`;
+    
+    const blob = pdf.output('blob');
+    const file = new File([blob], filename, { type: 'application/pdf' });
+
+    return { pdf, blob, file, filename };
+};
+
+// Reliable, standalone print mechanism via isolated iframe
+const printReceiptViaIframe = (receipt) => {
+    try {
+        const existingFrame = document.getElementById('apc-receipt-print-frame');
+        if (existingFrame) existingFrame.remove();
+
+        const iframe = document.createElement('iframe');
+        iframe.id = 'apc-receipt-print-frame';
+        iframe.style.position = 'fixed';
+        iframe.style.top = '-9999px';
+        iframe.style.left = '-9999px';
+        iframe.style.width = '210mm';
+        iframe.style.height = '297mm';
+        iframe.style.border = 'none';
+        iframe.style.zIndex = '-9999';
+        document.body.appendChild(iframe);
+
+        const logoUrl = window.location.origin + '/logo.jpeg';
+        const doc = iframe.contentWindow.document;
+        doc.open();
+        doc.write(buildReceiptHtml(receipt, logoUrl));
         doc.close();
 
         const triggerPrint = () => {
@@ -696,7 +731,7 @@ const FeeReceiptModal = ({ isOpen, onClose, receipt }) => {
         try {
             setIsGeneratingPdf(true);
             showToast('📄 Generating Official PDF Receipt...');
-            const { file, filename, pdf } = await generatePdfDocument(cardRef.current, studentName, receiptNo);
+            const { file, filename, pdf } = await generatePdfDocument(receipt);
             setIsGeneratingPdf(false);
 
             // 1. Mobile browsers (Android/iOS) with native file sharing support: sends the real PDF document straight to WhatsApp!
@@ -741,7 +776,7 @@ const FeeReceiptModal = ({ isOpen, onClose, receipt }) => {
         try {
             setIsGeneratingPdf(true);
             showToast('📄 Generating Fee Receipt PDF...');
-            const { pdf, filename } = await generatePdfDocument(cardRef.current, studentName, receiptNo);
+            const { pdf, filename } = await generatePdfDocument(receipt);
             pdf.save(filename);
             setIsGeneratingPdf(false);
             showToast(`✓ PDF downloaded: ${filename}`);
@@ -757,7 +792,7 @@ const FeeReceiptModal = ({ isOpen, onClose, receipt }) => {
         try {
             setIsGeneratingPdf(true);
             showToast('📄 Preparing PDF for sharing...');
-            const { file, filename, pdf } = await generatePdfDocument(cardRef.current, studentName, receiptNo);
+            const { file, filename, pdf } = await generatePdfDocument(receipt);
             setIsGeneratingPdf(false);
 
             if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
