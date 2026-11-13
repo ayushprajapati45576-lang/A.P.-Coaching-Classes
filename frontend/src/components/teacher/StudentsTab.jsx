@@ -13,10 +13,11 @@ const StudentsTab = () => {
     const [selectedIds, setSelectedIds] = useState([]);
     const [activeClass, setActiveClass] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'enrolled', 'leave'
 
 
     // Form State
-    const [formData, setFormData] = useState({ email: '', password: '', fullName: '', fatherName: '', phone: '', class_name: '10' });
+    const [formData, setFormData] = useState({ email: '', password: '', fullName: '', fatherName: '', phone: '', class_name: '10', batch: 'Both' });
     const [status, setStatus] = useState({ type: '', message: '' });
 
     useEffect(() => {
@@ -78,6 +79,36 @@ const StudentsTab = () => {
         } catch (err) {
             console.error(err);
             alert('Failed to approve student');
+        }
+    };
+
+    const handleToggleStatus = async (id, newStatus, studentName) => {
+        const isNowInactive = newStatus === 'inactive' || newStatus === 'leave';
+        const confirmMsg = isNowInactive
+            ? `Kya aap "${studentName}" ko 'Inactive' mark karna chahte hain?\n\n• Baccha active dashboard counts se hat jayega.\n• Bacche ka koi bhi purana data (attendance, fees, marks) delete nahi hoga aur bilkul safe rahega.\n• Aap ise baad me kabhi bhi wapas 'Active' kar sakte hain.`
+            : `Kya aap "${studentName}" ko wapas 'Active' mark karna chahte hain?\n\n• Baccha active dashboard roster aur counts me shamil ho jayega.`;
+        
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/students/${id}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                setStudents(prev => prev.map(s => s.id === id ? { ...s, enrollment_status: newStatus } : s));
+            } else {
+                alert(data.error || 'Failed to update student status');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Failed to update student status');
         }
     };
 
@@ -161,7 +192,7 @@ const StudentsTab = () => {
             const data = await res.json();
             if (res.ok) {
                 setStatus({ type: 'success', message: editingId ? 'Student updated successfully!' : 'Student created successfully!' });
-                setFormData({ email: '', password: '', fullName: '', fatherName: '', phone: '', class_name: '10' });
+                setFormData({ email: '', password: '', fullName: '', fatherName: '', phone: '', class_name: '10', batch: 'Both' });
                 setEditingId(null);
                 await fetchStudents();
                 setTimeout(() => {
@@ -183,7 +214,8 @@ const StudentsTab = () => {
             fullName: student.full_name || '',
             fatherName: student.father_name || '',
             phone: student.phone || '',
-            class_name: student.class_name || 'General'
+            class_name: student.class_name || 'General',
+            batch: student.batch || 'Both'
         });
         setEditingId(student.id);
         setStatus({ type: '', message: '' });
@@ -233,25 +265,6 @@ const StudentsTab = () => {
         </div>
     );
 
-    const getFilteredStudents = () => {
-        let filtered = students;
-        
-        if (activeClass) {
-            filtered = filtered.filter(s => String(s.class_name) === activeClass);
-        }
-        
-        if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
-            filtered = filtered.filter(s => 
-                (s.full_name && s.full_name.toLowerCase().includes(query)) ||
-                (s.phone && s.phone.toLowerCase().includes(query)) ||
-                (s.father_name && s.father_name.toLowerCase().includes(query))
-            );
-        }
-        
-        return filtered;
-    };
-
     const class6Students = students.filter(s => String(s.class_name) === '6');
     const class7Students = students.filter(s => String(s.class_name) === '7');
     const class8Students = students.filter(s => String(s.class_name) === '8');
@@ -261,34 +274,84 @@ const StudentsTab = () => {
     const class12Students = students.filter(s => String(s.class_name) === '12');
     const otherStudents = students.filter(s => !['6','7','8','9','10','11','12'].includes(String(s.class_name)));
 
+    const currentClassStudents = activeClass
+        ? (activeClass === 'General' ? otherStudents : students.filter(s => String(s.class_name) === String(activeClass)))
+        : (searchQuery.trim() ? students.filter(s => {
+            const q = searchQuery.toLowerCase();
+            return (s.full_name && s.full_name.toLowerCase().includes(q)) ||
+                   (s.phone && s.phone.toLowerCase().includes(q)) ||
+                   (s.father_name && s.father_name.toLowerCase().includes(q)) ||
+                   (s.users?.email && s.users.email.toLowerCase().includes(q));
+        }) : students);
+
+    const classActiveCount = currentClassStudents.filter(s => s.enrollment_status !== 'inactive' && s.enrollment_status !== 'leave').length;
+    const classInactiveCount = currentClassStudents.filter(s => s.enrollment_status === 'inactive' || s.enrollment_status === 'leave').length;
+    const classTotalCount = currentClassStudents.length;
+
+    const getFilteredStudents = () => {
+        let filtered = students;
+
+        if (activeClass) {
+            filtered = filtered.filter(s => activeClass === 'General'
+                ? !['6','7','8','9','10','11','12'].includes(String(s.class_name))
+                : String(s.class_name) === activeClass
+            );
+        }
+        
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(s => 
+                (s.full_name && s.full_name.toLowerCase().includes(query)) ||
+                (s.phone && s.phone.toLowerCase().includes(query)) ||
+                (s.father_name && s.father_name.toLowerCase().includes(query)) ||
+                (s.users?.email && s.users.email.toLowerCase().includes(query))
+            );
+        }
+
+        if (statusFilter === 'active') {
+            filtered = filtered.filter(s => s.enrollment_status !== 'inactive' && s.enrollment_status !== 'leave');
+        } else if (statusFilter === 'inactive') {
+            filtered = filtered.filter(s => s.enrollment_status === 'inactive' || s.enrollment_status === 'leave');
+        }
+        
+        return filtered;
+    };
+
     if (view === 'list') {
         const displayStudents = getFilteredStudents();
+        const isInsideFolderOrSearch = Boolean(activeClass || searchQuery.trim());
+
         return (
-            <div className={`glass-panel animate-fade-in`} style={{ padding: '1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-                    <h2 style={{ color: 'var(--color-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {activeClass ? (
-                            <>
-                                <button onClick={() => {setActiveClass(null); setSearchQuery('');}} style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '1.5rem', padding: 0 }}>←</button>
-                                {['6', '7', '8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass} Students` : 'General Students'}
-                            </>
-                        ) : 'Manage Students'}
-                    </h2>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className={`glass-panel animate-fade-in`} style={{ padding: '1.5rem', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div>
+                        <h2 style={{ color: 'var(--color-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {activeClass ? (
+                                <>
+                                    <button onClick={() => { setActiveClass(null); setSearchQuery(''); setStatusFilter('all'); }} style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '1.5rem', padding: 0 }}>←</button>
+                                    {['6', '7', '8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass} Students` : 'General Students'}
+                                </>
+                            ) : 'Manage Students'}
+                        </h2>
+                        <p style={{ margin: '0.25rem 0 0 0', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                            {activeClass ? `Active & Inactive status for ${['6', '7', '8', '9', '10', '11', '12'].includes(activeClass) ? `Class ${activeClass}` : 'General'}` : 'Select a class folder to view and manage students.'}
+                        </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <input 
                             type="text" 
-                            placeholder="Search by name, phone..." 
+                            placeholder="Search by name, phone, email..." 
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            style={{ padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-surface-hover)', color: 'var(--color-text-main)', width: '250px' }}
+                            style={{ padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-surface-hover)', color: 'var(--color-text-main)', width: '240px', fontSize: '0.9rem' }}
                         />
                         {selectedIds.length > 0 && (
-                            <button onClick={handleBulkDelete} style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>
+                            <button onClick={handleBulkDelete} style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '0.65rem 1.25rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>
                                 Delete ({selectedIds.length})
                             </button>
                         )}
                         <button onClick={() => {
-                            setFormData({ email: '', password: '', fullName: '', fatherName: '', phone: '', class_name: '10' });
+                            setFormData({ email: '', password: '', fullName: '', fatherName: '', phone: '', class_name: activeClass && ['6','7','8','9','10','11','12'].includes(activeClass) ? activeClass : '10' });
                             setEditingId(null);
                             setStatus({ type: '', message: '' });
                             setView('add');
@@ -298,24 +361,82 @@ const StudentsTab = () => {
                     </div>
                 </div>
 
+                {/* Status Filter Segment: ONLY visible when inside a class folder or search view */}
+                {isInsideFolderOrSearch && (
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap', alignItems: 'center', background: 'var(--color-surface-hover)', padding: '0.35rem 0.6rem', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
+                        <span style={{ fontSize: '0.82rem', fontWeight: '600', color: 'var(--color-text-muted)', marginRight: '0.25rem' }}>Status:</span>
+                        <button
+                            onClick={() => setStatusFilter('all')}
+                            type="button"
+                            style={{
+                                background: statusFilter === 'all' ? 'var(--color-primary)' : 'transparent',
+                                color: statusFilter === 'all' ? '#ffffff' : 'var(--color-text-main)',
+                                border: statusFilter === 'all' ? 'none' : '1px solid transparent',
+                                padding: '0.3rem 0.8rem',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontWeight: '600',
+                                fontSize: '0.82rem',
+                                transition: 'all 0.15s ease'
+                            }}
+                        >
+                            All ({classTotalCount})
+                        </button>
+                        <button
+                            onClick={() => setStatusFilter('active')}
+                            type="button"
+                            style={{
+                                background: statusFilter === 'active' ? '#10b981' : 'transparent',
+                                color: statusFilter === 'active' ? '#ffffff' : '#10b981',
+                                border: statusFilter === 'active' ? 'none' : '1px solid rgba(16, 185, 129, 0.3)',
+                                padding: '0.3rem 0.8rem',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontWeight: '600',
+                                fontSize: '0.82rem',
+                                transition: 'all 0.15s ease'
+                            }}
+                        >
+                            Active ({classActiveCount})
+                        </button>
+                        <button
+                            onClick={() => setStatusFilter('inactive')}
+                            type="button"
+                            style={{
+                                background: statusFilter === 'inactive' ? '#ef4444' : 'transparent',
+                                color: statusFilter === 'inactive' ? '#ffffff' : '#ef4444',
+                                border: statusFilter === 'inactive' ? 'none' : '1px solid rgba(239, 68, 68, 0.3)',
+                                padding: '0.3rem 0.8rem',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontWeight: '600',
+                                fontSize: '0.82rem',
+                                transition: 'all 0.15s ease'
+                            }}
+                        >
+                            Inactive ({classInactiveCount})
+                        </button>
+                    </div>
+                )}
+
                 {loading ? <p>Loading...</p> : (
-                    !activeClass && !searchQuery.trim() ? (
+                    !isInsideFolderOrSearch ? (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
-                            <FolderCard title="Class 6" count={class6Students.length} onClick={() => setActiveClass('6')} color="#ec4899" emoji="📖" />
-                            <FolderCard title="Class 7" count={class7Students.length} onClick={() => setActiveClass('7')} color="#8b5cf6" emoji="📙" />
-                            <FolderCard title="Class 8" count={class8Students.length} onClick={() => setActiveClass('8')} color="#a78bfa" emoji="📐" />
-                            <FolderCard title="Class 9" count={class9Students.length} onClick={() => setActiveClass('9')} color="#fb923c" emoji="🔬" />
-                            <FolderCard title="Class 10" count={class10Students.length} onClick={() => setActiveClass('10')} color="#60a5fa" emoji="🎒" />
-                            <FolderCard title="Class 11" count={class11Students.length} onClick={() => setActiveClass('11')} color="#fcd34d" emoji="🏫" />
-                            <FolderCard title="Class 12" count={class12Students.length} onClick={() => setActiveClass('12')} color="#34d399" emoji="🎓" />
-                            <FolderCard title="General" count={otherStudents.length} onClick={() => setActiveClass('General')} color="#f472b6" emoji="📚" />
+                            <FolderCard title="Class 6" count={class6Students.length} onClick={() => { setActiveClass('6'); setStatusFilter('all'); }} color="#ec4899" emoji="📖" />
+                            <FolderCard title="Class 7" count={class7Students.length} onClick={() => { setActiveClass('7'); setStatusFilter('all'); }} color="#8b5cf6" emoji="📙" />
+                            <FolderCard title="Class 8" count={class8Students.length} onClick={() => { setActiveClass('8'); setStatusFilter('all'); }} color="#a78bfa" emoji="📐" />
+                            <FolderCard title="Class 9" count={class9Students.length} onClick={() => { setActiveClass('9'); setStatusFilter('all'); }} color="#fb923c" emoji="🔬" />
+                            <FolderCard title="Class 10" count={class10Students.length} onClick={() => { setActiveClass('10'); setStatusFilter('all'); }} color="#60a5fa" emoji="🎒" />
+                            <FolderCard title="Class 11" count={class11Students.length} onClick={() => { setActiveClass('11'); setStatusFilter('all'); }} color="#fcd34d" emoji="🏫" />
+                            <FolderCard title="Class 12" count={class12Students.length} onClick={() => { setActiveClass('12'); setStatusFilter('all'); }} color="#34d399" emoji="🎓" />
+                            <FolderCard title="General" count={otherStudents.length} onClick={() => { setActiveClass('General'); setStatusFilter('all'); }} color="#f472b6" emoji="📚" />
                         </div>
                     ) : displayStudents.length === 0 ? <p>No students found.</p> : (
-                        <div style={{ overflowX: 'auto' }}>
+                        <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', boxSizing: 'border-box', WebkitOverflowScrolling: 'touch' }}>
                             <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                        <th style={{ padding: '0.75rem', width: '40px' }}>
+                                        <th style={{ padding: '0.65rem 0.5rem', width: '38px' }}>
                                             <input 
                                                 type="checkbox" 
                                                 onChange={handleSelectAll} 
@@ -323,18 +444,24 @@ const StudentsTab = () => {
                                                 style={{ cursor: 'pointer' }}
                                             />
                                         </th>
-                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Name</th>
-                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Father's Name</th>
-                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Class</th>
-                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Email</th>
-                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Status</th>
-                                        <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)', textAlign: 'right' }}>Actions</th>
+                                        <th style={{ padding: '0.65rem 0.5rem', color: 'var(--color-text-muted)' }}>Name</th>
+                                        <th style={{ padding: '0.65rem 0.5rem', color: 'var(--color-text-muted)' }}>Father's Name</th>
+                                        {!activeClass && (
+                                            <th style={{ padding: '0.65rem 0.5rem', color: 'var(--color-text-muted)' }}>Class</th>
+                                        )}
+                                        <th style={{ padding: '0.65rem 0.5rem', color: 'var(--color-text-muted)' }}>Batch</th>
+                                        <th style={{ padding: '0.65rem 0.5rem', color: 'var(--color-text-muted)' }}>Email</th>
+                                        <th style={{ padding: '0.65rem 0.5rem', color: 'var(--color-text-muted)' }}>Approval</th>
+                                        <th style={{ padding: '0.65rem 0.5rem', color: 'var(--color-text-muted)' }}>Status</th>
+                                        <th style={{ padding: '0.65rem 0.5rem', color: 'var(--color-text-muted)', textAlign: 'right' }}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {displayStudents.map((s) => (
+                                    {displayStudents.map((s) => {
+                                    const isInactive = s.enrollment_status === 'inactive' || s.enrollment_status === 'leave';
+                                    return (
                                     <tr key={s.id} style={{ borderBottom: '1px solid var(--color-border)', backgroundColor: selectedIds.includes(s.id) ? 'rgba(59, 130, 246, 0.05)' : 'transparent' }}>
-                                        <td style={{ padding: '0.75rem' }}>
+                                        <td style={{ padding: '0.65rem 0.5rem' }}>
                                             <input 
                                                 type="checkbox" 
                                                 checked={selectedIds.includes(s.id)} 
@@ -342,23 +469,41 @@ const StudentsTab = () => {
                                                 style={{ cursor: 'pointer' }}
                                             />
                                         </td>
-                                        <td style={{ padding: '0.75rem' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.9rem', flexShrink: 0 }}>
+                                        <td style={{ padding: '0.65rem 0.5rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                                <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.85rem', flexShrink: 0 }}>
                                                     {s.full_name ? s.full_name.charAt(0).toUpperCase() : 'S'}
                                                 </div>
-                                                <span style={{ fontWeight: '500', color: 'var(--color-text-main)' }}>{s.full_name}</span>
+                                                <span style={{ fontWeight: '500', color: 'var(--color-text-main)', whiteSpace: 'nowrap' }}>{s.full_name}</span>
                                             </div>
                                         </td>
-                                        <td style={{ padding: '0.75rem' }}>{s.father_name || '-'}</td>
-                                        <td style={{ padding: '0.75rem' }}>{['8', '9', '10', '11', '12'].includes(s.class_name) ? `Class ${s.class_name}` : s.class_name}</td>
-                                        <td style={{ padding: '0.75rem' }}>{s.users?.email}</td>
+                                        <td style={{ padding: '0.65rem 0.5rem', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.father_name || '-'}>{s.father_name || '-'}</td>
+                                        {!activeClass && (
+                                            <td style={{ padding: '0.65rem 0.5rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{['8', '9', '10', '11', '12'].includes(s.class_name) ? `Class ${s.class_name}` : s.class_name}</td>
+                                        )}
+                                        <td style={{ padding: '0.65rem 0.5rem', whiteSpace: 'nowrap' }}>
+                                            <span style={{
+                                                padding: '0.18rem 0.45rem',
+                                                borderRadius: '6px',
+                                                fontSize: '0.72rem',
+                                                fontWeight: '600',
+                                                backgroundColor: s.batch === 'Morning' ? 'rgba(245, 158, 11, 0.15)' : s.batch === 'Evening' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                                                color: s.batch === 'Morning' ? '#f59e0b' : s.batch === 'Evening' ? '#818cf8' : '#3b82f6',
+                                                border: s.batch === 'Morning' ? '1px solid rgba(245, 158, 11, 0.3)' : s.batch === 'Evening' ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '3px'
+                                            }}>
+                                                {s.batch === 'Morning' ? 'Morning' : s.batch === 'Evening' ? 'Evening' : 'Both'}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '0.65rem 0.5rem', maxWidth: '170px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.85rem' }} title={s.users?.email || ''}>{s.users?.email}</td>
 
-                                        <td style={{ padding: '0.75rem' }}>
+                                        <td style={{ padding: '0.65rem 0.5rem', whiteSpace: 'nowrap' }}>
                                             <span style={{ 
-                                                padding: '0.25rem 0.5rem', 
+                                                padding: '0.2rem 0.45rem', 
                                                 borderRadius: '12px', 
-                                                fontSize: '0.75rem', 
+                                                fontSize: '0.72rem', 
                                                 fontWeight: 'bold',
                                                 backgroundColor: s.is_approved ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
                                                 color: s.is_approved ? '#10b981' : '#f59e0b'
@@ -366,8 +511,61 @@ const StudentsTab = () => {
                                                 {s.is_approved ? 'Approved' : 'Pending'}
                                             </span>
                                         </td>
-                                        <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
+                                        <td style={{ padding: '0.65rem 0.5rem', whiteSpace: 'nowrap' }}>
+                                            <span style={{ 
+                                                padding: '0.2rem 0.55rem', 
+                                                borderRadius: '12px', 
+                                                fontSize: '0.72rem', 
+                                                fontWeight: '700',
+                                                backgroundColor: isInactive ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                                color: isInactive ? '#ef4444' : '#10b981',
+                                                border: isInactive ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '3px'
+                                            }}>
+                                                {isInactive ? 'Inactive' : 'Active'}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '0.65rem 0.5rem', textAlign: 'right' }}>
+                                            <div style={{ display: 'inline-flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.35rem', flexWrap: 'nowrap' }}>
+                                                {isInactive ? (
+                                                    <button
+                                                        onClick={() => handleToggleStatus(s.id, 'active', s.full_name)}
+                                                        title="Student ko Active mark karein"
+                                                        style={{
+                                                            background: 'rgba(16, 185, 129, 0.15)',
+                                                            color: '#10b981',
+                                                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                                                            padding: '0.22rem 0.6rem',
+                                                            borderRadius: '4px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.78rem',
+                                                            fontWeight: '600',
+                                                            whiteSpace: 'nowrap'
+                                                        }}
+                                                    >
+                                                        Active
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleToggleStatus(s.id, 'inactive', s.full_name)}
+                                                        title="Student ko Inactive mark karein (Data safe rahega)"
+                                                        style={{
+                                                            background: 'rgba(239, 68, 68, 0.15)',
+                                                            color: '#ef4444',
+                                                            border: '1px solid rgba(239, 68, 68, 0.4)',
+                                                            padding: '0.22rem 0.6rem',
+                                                            borderRadius: '4px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.78rem',
+                                                            fontWeight: '600',
+                                                            whiteSpace: 'nowrap'
+                                                        }}
+                                                    >
+                                                        Inactive
+                                                    </button>
+                                                )}
                                                 {!s.is_approved && (
                                                     <button
                                                         onClick={() => handleApprove(s.id)}
@@ -375,10 +573,10 @@ const StudentsTab = () => {
                                                             background: 'rgba(16, 185, 129, 0.2)',
                                                             color: '#10b981',
                                                             border: '1px solid rgba(16, 185, 129, 0.3)',
-                                                            padding: '0.25rem 0.75rem',
+                                                            padding: '0.22rem 0.55rem',
                                                             borderRadius: '4px',
                                                             cursor: 'pointer',
-                                                            fontSize: '0.875rem',
+                                                            fontSize: '0.78rem',
                                                             whiteSpace: 'nowrap'
                                                         }}
                                                     >
@@ -391,10 +589,10 @@ const StudentsTab = () => {
                                                         background: 'rgba(59, 130, 246, 0.2)',
                                                         color: '#3b82f6',
                                                         border: '1px solid rgba(59, 130, 246, 0.3)',
-                                                        padding: '0.25rem 0.75rem',
+                                                        padding: '0.22rem 0.55rem',
                                                         borderRadius: '4px',
                                                         cursor: 'pointer',
-                                                        fontSize: '0.875rem',
+                                                        fontSize: '0.78rem',
                                                         whiteSpace: 'nowrap'
                                                     }}
                                                 >
@@ -406,10 +604,10 @@ const StudentsTab = () => {
                                                         background: 'rgba(239, 68, 68, 0.2)',
                                                         color: '#ef4444',
                                                         border: '1px solid rgba(239, 68, 68, 0.3)',
-                                                        padding: '0.25rem 0.75rem',
+                                                        padding: '0.22rem 0.55rem',
                                                         borderRadius: '4px',
                                                         cursor: 'pointer',
-                                                        fontSize: '0.875rem',
+                                                        fontSize: '0.78rem',
                                                         whiteSpace: 'nowrap'
                                                     }}
                                                 >
@@ -418,7 +616,8 @@ const StudentsTab = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                );
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -460,6 +659,14 @@ const StudentsTab = () => {
                         <option value="11">Class 11</option>
                         <option value="12">Class 12</option>
                         <option value="General">General / Other</option>
+                    </select>
+                </div>
+                <div className={styles.inputGroup}>
+                    <label>Batch (बैच)</label>
+                    <select value={formData.batch || 'Both'} onChange={e => setFormData({ ...formData, batch: e.target.value })} className={styles.selectInput}>
+                        <option value="Morning">Morning Batch (सुबह)</option>
+                        <option value="Evening">Evening Batch (शाम)</option>
+                        <option value="Both">Both Batches (सुबह और शाम दोनों)</option>
                     </select>
                 </div>
                 <div className={styles.inputGroup}>

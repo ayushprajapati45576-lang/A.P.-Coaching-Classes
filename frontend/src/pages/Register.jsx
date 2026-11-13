@@ -10,6 +10,7 @@ const Register = () => {
       fatherName: '',
       phone: '',
       class_name: '10',
+      batch: 'Morning',
       email: '',
       password: '',
       confirmPassword: ''
@@ -117,6 +118,19 @@ const Register = () => {
                 <option value="11">Class 11</option>
                 <option value="12">Class 12</option>
                 <option value="General">General / Other</option>
+              </select>
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label>Batch (बैच)</label>
+              <select 
+                value={formData.batch} 
+                onChange={(e) => setFormData({...formData, batch: e.target.value})}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-main)' }}
+              >
+                <option value="Morning">Morning Batch (सुबह का बैच)</option>
+                <option value="Evening">Evening Batch (शाम का बैच)</option>
+                <option value="Both">Both Batches (सुबह और शाम दोनों)</option>
               </select>
             </div>
             

@@ -131,7 +131,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.post('/api/auth/register', async (req, res) => {
-    const { email, password, fullName, fatherName, phone, class_name } = req.body;
+    const { email, password, fullName, fatherName, phone, class_name, batch } = req.body;
     try {
         if (!email || !email.trim()) {
             return res.status(400).json({ error: "Email is required" });
@@ -161,11 +161,28 @@ app.post('/api/auth/register', async (req, res) => {
             throw insertUserErr;
         }
         
-        const { error: insertStudentErr } = await supabase.from('students').insert({ 
-            id: userId, full_name: fullName, father_name: fatherName, 
-            phone, class_name: class_name || 'General' 
-        });
-        if (insertStudentErr) throw insertStudentErr;
+        const cleanBatch = ['Morning', 'Evening', 'Both'].includes(batch) ? batch : 'Both';
+        let insertStudentErr = null;
+        try {
+            const resInsert = await supabase.from('students').insert({ 
+                id: userId, full_name: fullName, father_name: fatherName, 
+                phone, class_name: class_name || 'General',
+                batch: cleanBatch
+            });
+            insertStudentErr = resInsert.error;
+        } catch (e) {
+            insertStudentErr = e;
+        }
+
+        if (insertStudentErr) {
+            const { error: fallbackErr } = await supabase.from('students').insert({ 
+                id: userId, full_name: fullName, father_name: fatherName, 
+                phone, class_name: class_name || 'General' 
+            });
+            if (fallbackErr) throw fallbackErr;
+        }
+
+        await setStudentBatch(userId, cleanBatch);
 
         res.status(201).json({ message: "Registration successful, pending teacher approval" });
     } catch (err) {
@@ -176,7 +193,7 @@ app.post('/api/auth/register', async (req, res) => {
 
 // --- Students ---
 app.post('/api/students', authenticateToken, requireRole('teacher'), async (req, res) => {
-    const { email, password, fullName, fatherName, phone, class_name } = req.body;
+    const { email, password, fullName, fatherName, phone, class_name, batch } = req.body;
     try {
         if (!email || !email.trim()) {
             return res.status(400).json({ error: "Email is required" });
@@ -213,21 +230,140 @@ app.post('/api/students', authenticateToken, requireRole('teacher'), async (req,
             throw insertUserErr;
         }
 
-        const { error: insertStudentErr } = await supabase.from('students').insert({ 
-            id: userId, full_name: fullName, father_name: fatherName, 
-            phone, class_name: class_name || 'General' 
-        });
-        if (insertStudentErr) throw insertStudentErr;
+        const cleanBatch = ['Morning', 'Evening', 'Both'].includes(batch) ? batch : 'Both';
+        let insertStudentErr = null;
+        try {
+            const resInsert = await supabase.from('students').insert({ 
+                id: userId, full_name: fullName, father_name: fatherName, 
+                phone, class_name: class_name || 'General',
+                batch: cleanBatch
+            });
+            insertStudentErr = resInsert.error;
+        } catch (e) {
+            insertStudentErr = e;
+        }
+
+        if (insertStudentErr) {
+            const { error: fallbackErr } = await supabase.from('students').insert({ 
+                id: userId, full_name: fullName, father_name: fatherName, 
+                phone, class_name: class_name || 'General' 
+            });
+            if (fallbackErr) throw fallbackErr;
+        }
+
+        await setStudentBatch(userId, cleanBatch, req.user.id);
 
         const { data: studentData, error: fetchErr } = await supabase.from('students').select('*').eq('id', userId).maybeSingle();
         if (fetchErr) throw fetchErr;
 
-        res.status(201).json({ message: "Student created successfully", student: studentData });
+        res.status(201).json({ message: "Student created successfully", student: { ...studentData, batch: cleanBatch } });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
+
+// --- Student Status (Active / Inactive) Helpers ---
+async function getStudentEnrollmentStatuses() {
+    try {
+        const { data: notice } = await supabase
+            .from('notices')
+            .select('*')
+            .eq('title', '__STUDENT_ENROLLMENT_STATUS__')
+            .maybeSingle();
+        if (notice && notice.content) {
+            try {
+                return JSON.parse(notice.content);
+            } catch (e) {
+                return {};
+            }
+        }
+    } catch (err) {
+        console.error("Error fetching student enrollment statuses:", err);
+    }
+    return {};
+}
+
+async function setStudentEnrollmentStatus(studentId, status, teacherUserId) {
+    const isInactive = status === 'inactive' || status === 'leave';
+    const cleanStatus = isInactive ? 'inactive' : 'active';
+    const statuses = await getStudentEnrollmentStatuses();
+    statuses[studentId] = cleanStatus;
+
+    const { data: existing } = await supabase
+        .from('notices')
+        .select('id')
+        .eq('title', '__STUDENT_ENROLLMENT_STATUS__')
+        .maybeSingle();
+    const content = JSON.stringify(statuses);
+
+    if (existing) {
+        await supabase.from('notices').update({ content }).eq('id', existing.id);
+    } else {
+        await supabase.from('notices').insert({
+            title: '__STUDENT_ENROLLMENT_STATUS__',
+            content,
+            created_by: teacherUserId || null
+        });
+    }
+
+    // Also attempt direct DB column update if available
+    try {
+        await supabase.from('students').update({ enrollment_status: cleanStatus }).eq('id', studentId);
+    } catch (_) {}
+
+    return statuses;
+}
+
+// --- Student Batch Helpers (Morning / Evening / Both) ---
+async function getStudentBatches() {
+    try {
+        const { data: notice } = await supabase
+            .from('notices')
+            .select('*')
+            .eq('title', '__STUDENT_BATCHES__')
+            .maybeSingle();
+        if (notice && notice.content) {
+            try {
+                return JSON.parse(notice.content);
+            } catch (e) {
+                return {};
+            }
+        }
+    } catch (err) {
+        console.error("Error fetching student batches:", err);
+    }
+    return {};
+}
+
+async function setStudentBatch(studentId, batch, teacherUserId) {
+    const cleanBatch = ['Morning', 'Evening', 'Both'].includes(batch) ? batch : 'Both';
+    const batches = await getStudentBatches();
+    batches[studentId] = cleanBatch;
+
+    const { data: existing } = await supabase
+        .from('notices')
+        .select('id')
+        .eq('title', '__STUDENT_BATCHES__')
+        .maybeSingle();
+    const content = JSON.stringify(batches);
+
+    if (existing) {
+        await supabase.from('notices').update({ content }).eq('id', existing.id);
+    } else {
+        await supabase.from('notices').insert({
+            title: '__STUDENT_BATCHES__',
+            content,
+            created_by: teacherUserId || null
+        });
+    }
+
+    try {
+        await supabase.from('students').update({ batch: cleanBatch }).eq('id', studentId);
+    } catch (_) {}
+
+    return batches;
+}
 
 app.get('/api/students', authenticateToken, requireRole('teacher'), async (req, res) => {
     try {
@@ -238,15 +374,61 @@ app.get('/api/students', authenticateToken, requireRole('teacher'), async (req, 
         
         if (error) throw error;
 
-        const formatted = students.map(s => ({
-            id: s.id, full_name: s.full_name, father_name: s.father_name, phone: s.phone, 
-            enrollment_date: s.enrollment_date, class_name: s.class_name, class: s.class_name, total_fees: s.total_fees !== undefined && s.total_fees !== null ? Number(s.total_fees) : null, fees_start_date: s.fees_start_date || null, fees_due_date: s.fees_due_date || null, 
-            is_approved: s.users.is_approved,
-            users: { email: s.users.email }
-        }));
+        const statuses = await getStudentEnrollmentStatuses();
+        const batches = await getStudentBatches();
+
+        const formatted = students.map(s => {
+            const rawStatus = s.enrollment_status || statuses[s.id] || 'active';
+            const status = (rawStatus === 'inactive' || rawStatus === 'leave') ? 'inactive' : 'active';
+            const batch = s.batch || batches[s.id] || 'Both';
+            return {
+                id: s.id, 
+                full_name: s.full_name, 
+                father_name: s.father_name, 
+                phone: s.phone, 
+                enrollment_date: s.enrollment_date, 
+                class_name: s.class_name, 
+                class: s.class_name, 
+                total_fees: s.total_fees !== undefined && s.total_fees !== null ? Number(s.total_fees) : null, 
+                fees_start_date: s.fees_start_date || null, 
+                fees_due_date: s.fees_due_date || null, 
+                is_approved: s.users.is_approved,
+                enrollment_status: status, // 'active' or 'inactive'
+                batch: batch, // 'Morning', 'Evening', 'Both'
+                users: { email: s.users.email }
+            };
+        });
         res.json(formatted);
     } catch (err) {
-        console.error("Error in POST /api/notes:", err);
+        console.error("Error in GET /api/students:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
+    }
+});
+
+// Update student enrollment status (active | inactive) without deleting data
+app.put('/api/students/:id/status', authenticateToken, requireRole('teacher'), async (req, res) => {
+    const { status } = req.body;
+    const isInactive = status === 'inactive' || status === 'leave';
+    const cleanStatus = isInactive ? 'inactive' : 'active';
+    try {
+        const { data: student, error: fetchErr } = await supabase
+            .from('students')
+            .select('id, full_name')
+            .eq('id', req.params.id)
+            .maybeSingle();
+
+        if (fetchErr) throw fetchErr;
+        if (!student) return res.status(404).json({ error: "Student not found" });
+
+        await setStudentEnrollmentStatus(req.params.id, cleanStatus, req.user.id);
+
+        res.json({
+            message: `Student marked as ${cleanStatus === 'inactive' ? 'Inactive' : 'Active'}`,
+            id: req.params.id,
+            enrollment_status: cleanStatus
+        });
+    } catch (err) {
+        console.error("Error in PUT /api/students/:id/status:", err);
         res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
@@ -261,7 +443,7 @@ app.delete('/api/students/:id', authenticateToken, requireRole('teacher'), async
 });
 
 app.put('/api/students/:id', authenticateToken, requireRole('teacher'), async (req, res) => {
-    const { email, password, fullName, fatherName, phone, class_name } = req.body;
+    const { email, password, fullName, fatherName, phone, class_name, batch } = req.body;
     try {
         if (email) {
             const cleanEmail = email.trim().toLowerCase();
@@ -297,6 +479,11 @@ app.put('/api/students/:id', authenticateToken, requireRole('teacher'), async (r
         if (fatherName !== undefined) studentUpdate.father_name = fatherName;
         if (phone !== undefined) studentUpdate.phone = phone;
         if (class_name) studentUpdate.class_name = class_name;
+
+        if (batch) {
+            const cleanBatch = ['Morning', 'Evening', 'Both'].includes(batch) ? batch : 'Both';
+            await setStudentBatch(req.params.id, cleanBatch, req.user.id);
+        }
         
         if (Object.keys(studentUpdate).length > 0) {
             const { error: studentErr } = await supabase.from('students').update(studentUpdate).eq('id', req.params.id);
@@ -545,6 +732,8 @@ app.get('/api/notices', authenticateToken, async (req, res) => {
         const { data: notices } = await supabase.from('notices')
             .select('*')
             .neq('title', '__LIVE_CLASS_STATUS__')
+            .neq('title', '__STUDENT_ENROLLMENT_STATUS__')
+            .neq('title', '__STUDENT_BATCHES__')
             .order('created_at', { ascending: false });
         res.json(notices || []);
     } catch (err) {
@@ -1224,6 +1413,8 @@ app.get('/api/notifications/unread', authenticateToken, async (req, res) => {
         let query = supabase.from('notices')
             .select('*')
             .neq('title', '__LIVE_CLASS_STATUS__')
+            .neq('title', '__STUDENT_ENROLLMENT_STATUS__')
+            .neq('title', '__STUDENT_BATCHES__')
             .order('created_at', { ascending: false });
 
         if (lastSeen) {
@@ -1360,21 +1551,74 @@ app.get('/api/dashboard/stats', authenticateToken, requireRole('teacher'), async
     try {
         const { date } = req.query;
         
-        const { count: studentsCount } = await supabase.from('students').select('*', { count: 'exact', head: true });
+        const { data: allStudents, error: studErr } = await supabase.from('students').select('id, enrollment_status');
+        if (studErr) throw studErr;
+
+        const statuses = await getStudentEnrollmentStatuses();
+        const batches = await getStudentBatches();
         
+        let activeCount = 0;
+        let inactiveCount = 0;
+        let morningActive = 0;
+        let eveningActive = 0;
+
+        (allStudents || []).forEach(s => {
+            const rawStatus = s.enrollment_status || statuses[s.id] || 'active';
+            const isInactive = rawStatus === 'inactive' || rawStatus === 'leave';
+            const sBatch = s.batch || batches[s.id] || 'Both';
+
+            if (isInactive) {
+                inactiveCount++;
+            } else {
+                activeCount++;
+                if (sBatch === 'Morning' || sBatch === 'Both') {
+                    morningActive++;
+                }
+                if (sBatch === 'Evening' || sBatch === 'Both') {
+                    eveningActive++;
+                }
+            }
+        });
+        
+        let presentMorning = 0;
+        let presentEvening = 0;
         let presentToday = 0;
         if (date) {
-            const { count } = await supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('date', date).eq('status', 'present');
-            presentToday = count || 0;
+            const { count: morningCount } = await supabase
+                .from('attendance')
+                .select('*', { count: 'exact', head: true })
+                .eq('date', date)
+                .eq('session_type', 'Morning')
+                .eq('status', 'present');
+            presentMorning = morningCount || 0;
+
+            const { count: eveningCount } = await supabase
+                .from('attendance')
+                .select('*', { count: 'exact', head: true })
+                .eq('date', date)
+                .eq('session_type', 'Evening')
+                .eq('status', 'present');
+            presentEvening = eveningCount || 0;
+
+            presentToday = presentMorning;
         }
 
         res.json({
-            totalStudents: studentsCount || 0,
+            totalStudents: activeCount, // Active students count for dashboard
+            totalActive: activeCount,
+            totalInactive: inactiveCount,
+            totalMorning: morningActive,
+            totalEvening: eveningActive,
+            totalEnrolled: activeCount,
+            totalLeave: inactiveCount,
+            totalAll: (allStudents || []).length,
+            presentMorning: presentMorning,
+            presentEvening: presentEvening,
             presentToday: presentToday,
             latestExamAverage: 'N/A'
         });
     } catch (err) {
-        console.error("Error in POST /api/notes:", err);
+        console.error("Error in GET /api/dashboard/stats:", err);
         res.status(500).json({ error: err.message || "Internal server error" });
     }
 });

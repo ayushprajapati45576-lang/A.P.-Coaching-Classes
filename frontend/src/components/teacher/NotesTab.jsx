@@ -444,7 +444,7 @@ const NotesTab = () => {
                                         </button>
                                     </div>
                                 ) : (
-                                    <div style={{ overflowX: 'auto', background: 'var(--color-surface-hover)', borderRadius: '8px', padding: '1rem' }}>
+                                    <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', background: 'var(--color-surface-hover)', borderRadius: '8px', padding: '1rem', boxSizing: 'border-box', WebkitOverflowScrolling: 'touch' }}>
                                         <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '1px solid var(--color-border)' }}>

@@ -192,7 +192,18 @@ const AttendanceTab = () => {
         setSaving(true);
         setStatusMsg({ type: 'loading', message: 'Saving attendance...' });
 
-        const records = students.map(s => ({
+        const eligibleStudents = students.filter(s => {
+            const isActive = s.enrollment_status !== 'inactive' && s.enrollment_status !== 'leave';
+            if (!isActive) return false;
+            if (sessionType === 'Morning') {
+                return s.batch === 'Morning' || s.batch === 'Both' || !s.batch;
+            } else if (sessionType === 'Evening') {
+                return s.batch === 'Evening' || s.batch === 'Both';
+            }
+            return true;
+        });
+
+        const records = eligibleStudents.map(s => ({
             student_id: s.id,
             status: attendance[s.id] || 'present'
         }));
@@ -264,6 +275,20 @@ const AttendanceTab = () => {
 
     const getFilteredStudents = () => {
         let filtered = students;
+
+        // When marking daily attendance, only include active students matching current session batch
+        if (viewMode === 'mark') {
+            filtered = filtered.filter(s => {
+                const isActive = s.enrollment_status !== 'inactive' && s.enrollment_status !== 'leave';
+                if (!isActive) return false;
+                if (sessionType === 'Morning') {
+                    return s.batch === 'Morning' || s.batch === 'Both' || !s.batch;
+                } else if (sessionType === 'Evening') {
+                    return s.batch === 'Evening' || s.batch === 'Both';
+                }
+                return true;
+            });
+        }
         
         if (activeClass) {
             filtered = filtered.filter(s => String(s.class_name) === activeClass);
@@ -281,14 +306,40 @@ const AttendanceTab = () => {
         return filtered;
     };
 
-    const class6Students = students.filter(s => String(s.class_name) === '6');
-    const class7Students = students.filter(s => String(s.class_name) === '7');
-    const class8Students = students.filter(s => String(s.class_name) === '8');
-    const class9Students = students.filter(s => String(s.class_name) === '9');
-    const class10Students = students.filter(s => String(s.class_name) === '10');
-    const class11Students = students.filter(s => String(s.class_name) === '11');
-    const class12Students = students.filter(s => String(s.class_name) === '12');
-    const otherStudents = students.filter(s => !['6','7','8','9','10','11','12'].includes(String(s.class_name)));
+    const isClassIncluded = (s, classNum) => {
+        if (String(s.class_name) !== String(classNum)) return false;
+        if (viewMode === 'mark') {
+            const isActive = s.enrollment_status !== 'inactive' && s.enrollment_status !== 'leave';
+            if (!isActive) return false;
+            if (sessionType === 'Morning') {
+                return s.batch === 'Morning' || s.batch === 'Both' || !s.batch;
+            } else if (sessionType === 'Evening') {
+                return s.batch === 'Evening' || s.batch === 'Both';
+            }
+        }
+        return true;
+    };
+
+    const class6Students = students.filter(s => isClassIncluded(s, '6'));
+    const class7Students = students.filter(s => isClassIncluded(s, '7'));
+    const class8Students = students.filter(s => isClassIncluded(s, '8'));
+    const class9Students = students.filter(s => isClassIncluded(s, '9'));
+    const class10Students = students.filter(s => isClassIncluded(s, '10'));
+    const class11Students = students.filter(s => isClassIncluded(s, '11'));
+    const class12Students = students.filter(s => isClassIncluded(s, '12'));
+    const otherStudents = students.filter(s => {
+        if (['6','7','8','9','10','11','12'].includes(String(s.class_name))) return false;
+        if (viewMode === 'mark') {
+            const isActive = s.enrollment_status !== 'inactive' && s.enrollment_status !== 'leave';
+            if (!isActive) return false;
+            if (sessionType === 'Morning') {
+                return s.batch === 'Morning' || s.batch === 'Both' || !s.batch;
+            } else if (sessionType === 'Evening') {
+                return s.batch === 'Evening' || s.batch === 'Both';
+            }
+        }
+        return true;
+    });
 
     const processReport = () => {
         const studentStats = {};
@@ -332,7 +383,7 @@ const AttendanceTab = () => {
     const stats = processReport();
 
     return (
-        <div className={`glass-panel animate-fade-in`} style={{ padding: '1.5rem' }}>
+        <div className={`glass-panel animate-fade-in`} style={{ padding: '1.5rem', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
                 <button 
                     onClick={() => { setViewMode('mark'); setEditingStudent(null); }}
@@ -431,11 +482,12 @@ const AttendanceTab = () => {
                             <p style={{ color: 'var(--color-text-muted)' }}>No students found to mark attendance.</p>
                         ) : (
                             <>
-                                <div style={{ overflowX: 'auto', marginBottom: '1.5rem' }}>
+                                <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', marginBottom: '1.5rem', boxSizing: 'border-box', WebkitOverflowScrolling: 'touch' }}>
                                     <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                                         <thead>
                                             <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
                                                 <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Student Name</th>
+                                                <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>Batch</th>
                                                 <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>Present</th>
                                                 <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>Absent</th>
                                                 <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>Late</th>
@@ -444,7 +496,22 @@ const AttendanceTab = () => {
                                         <tbody>
                                             {displayStudents.map((s) => (
                                             <tr key={s.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                                <td style={{ padding: '0.75rem' }}>{s.full_name}</td>
+                                                <td style={{ padding: '0.75rem', fontWeight: '500' }}>{s.full_name}</td>
+                                                <td style={{ padding: '0.75rem' }}>
+                                                    <span style={{
+                                                        padding: '0.2rem 0.5rem',
+                                                        borderRadius: '6px',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: '600',
+                                                        backgroundColor: s.batch === 'Morning' ? 'rgba(245, 158, 11, 0.15)' : s.batch === 'Evening' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                                                        color: s.batch === 'Morning' ? '#f59e0b' : s.batch === 'Evening' ? '#818cf8' : '#3b82f6',
+                                                        border: s.batch === 'Morning' ? '1px solid rgba(245, 158, 11, 0.3)' : s.batch === 'Evening' ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center'
+                                                    }}>
+                                                        {s.batch === 'Morning' ? 'Morning' : s.batch === 'Evening' ? 'Evening' : 'Both'}
+                                                    </span>
+                                                </td>
                                                 <td style={{ padding: '0.75rem', textAlign: 'center' }}>
                                                     <input
                                                         type="radio"
@@ -514,7 +581,7 @@ const AttendanceTab = () => {
                             ) : studentHistory.length === 0 ? (
                                 <p style={{ color: 'var(--color-text-muted)' }}>No attendance records found.</p>
                             ) : (
-                                <div style={{ overflowX: 'auto', marginBottom: '1.5rem' }}>
+                                <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', marginBottom: '1.5rem', boxSizing: 'border-box', WebkitOverflowScrolling: 'touch' }}>
                                     {(() => {
                                         const grouped = studentHistory.reduce((acc, curr) => {
                                             if (!acc[curr.date]) acc[curr.date] = { date: curr.date, Morning: null, Evening: null };
@@ -620,7 +687,7 @@ const AttendanceTab = () => {
                             ) : stats.length === 0 ? (
                                 <p style={{ color: 'var(--color-text-muted)' }}>No attendance records found for this month.</p>
                             ) : (
-                                <div style={{ overflowX: 'auto', marginBottom: '1.5rem' }}>
+                                <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', marginBottom: '1.5rem', boxSizing: 'border-box', WebkitOverflowScrolling: 'touch' }}>
                                     <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                                         <thead>
                                             <tr style={{ borderBottom: '1px solid var(--color-border)' }}>

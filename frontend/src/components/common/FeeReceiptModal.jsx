@@ -412,23 +412,29 @@ const buildReceiptCardHtml = (receipt, logoUrl) => {
 
     return `
     <div class="receipt-card">
-        <!-- Header -->
-        <div class="header">
-            <div class="logo-title">
-                <img src="${logoUrl}" alt="A.P. Coaching Logo" class="logo" onerror="this.style.display='none'">
-                <div class="title">
-                    <h1>A.P. COACHING CLASSES</h1>
-                    <p class="tagline">सही मार्गदर्शन, उज्जवल भविष्य की पहचान · Concept Clear, Future Secure</p>
-                    <p class="sub">Classes 6th to 12th · All Subjects (Science, Commerce, Arts)</p>
-                    <p class="contact">Anil Sir Campus | Helpline / Mob: +91 9981182741</p>
-                </div>
-            </div>
-            <div class="badge-box">
-                <div class="badge">${isStatement ? 'FEES STATEMENT' : 'FEE RECEIPT / रसीद'}</div>
-                <div class="receipt-no">Receipt No: ${receiptNo}</div>
-                <div class="receipt-date">Date: ${dateStr}</div>
-            </div>
-        </div>
+        <!-- Header (Strict Table Layout - Never Collapses or Wraps) -->
+        <table class="header-table" style="width: 100%; border-collapse: collapse; border-bottom: 2.5px solid #1B2240; padding-bottom: 12px; margin-bottom: 10px; table-layout: fixed;">
+            <tr>
+                <td style="width: 76px; vertical-align: middle;">
+                    <img src="${logoUrl}" alt="A.P. Coaching Logo" class="logo" onerror="this.style.display='none'">
+                </td>
+                <td style="vertical-align: middle; padding-left: 10px;">
+                    <div class="title">
+                        <h1>A.P. COACHING CLASSES</h1>
+                        <p class="tagline">सही मार्गदर्शन, उज्जवल भविष्य की पहचान · Concept Clear, Future Secure</p>
+                        <p class="sub">Classes 6th to 12th · All Subjects (Science, Commerce, Arts)</p>
+                        <p class="contact">Anil Sir Campus | Director Helpline: +91 9981182741</p>
+                    </div>
+                </td>
+                <td style="width: 215px; text-align: right; vertical-align: middle;">
+                    <div class="badge-box">
+                        <div class="badge">${isStatement ? 'FEES STATEMENT' : 'FEE RECEIPT / रसीद'}</div>
+                        <div class="receipt-no">Receipt No: ${receiptNo}</div>
+                        <div class="receipt-date">Date: ${dateStr}</div>
+                    </div>
+                </td>
+            </tr>
+        </table>
 
         <div class="content-body">
             <!-- Student & Academic Details (Strict 2-Column Table, Non-collapsible) -->
@@ -550,22 +556,28 @@ const buildReceiptCardHtml = (receipt, logoUrl) => {
             </div>
         </div>
 
-        <!-- Stamp & Signatures -->
-        <div class="bottom-row">
-            <div class="stamp-box">
-                <div style="font-size: 11.5px; font-weight: 800;">A.P. COACHING</div>
-                <div style="font-size: 10.5px; font-weight: 700;">CLASSES</div>
-                <div style="font-size: 9px; font-weight: 800; margin: 2px 0;">★ VERIFIED & PAID ★</div>
-                <div style="font-size: 8px; font-weight: 600;">ANIL SIR CAMPUS</div>
-            </div>
-            <div class="sign-box">
-                <div class="sign-text">Anil Sir</div>
-                <div class="sign-line"></div>
-                <div class="sign-title">Authorized Signatory / Director</div>
-                <div style="font-size: 10px; color: #64748b;">A.P. Coaching Classes</div>
-                <div style="font-size: 11.5px; color: #1B2240; font-weight: 800; margin-top: 2px;">Mob: 9981182741</div>
-            </div>
-        </div>
+        <!-- Stamp & Signatures (Strict Table Layout) -->
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; padding-top: 6px;">
+            <tr>
+                <td style="width: 160px; vertical-align: bottom;">
+                    <div class="stamp-box">
+                        <div style="font-size: 11.5px; font-weight: 800;">A.P. COACHING</div>
+                        <div style="font-size: 10.5px; font-weight: 700;">CLASSES</div>
+                        <div style="font-size: 9px; font-weight: 800; margin: 2px 0;">★ VERIFIED & PAID ★</div>
+                        <div style="font-size: 8px; font-weight: 600;">ANIL SIR CAMPUS</div>
+                    </div>
+                </td>
+                <td style="vertical-align: bottom; text-align: right;">
+                    <div class="sign-box" style="display: inline-block;">
+                        <div class="sign-text">Anil Sir</div>
+                        <div class="sign-line"></div>
+                        <div class="sign-title">Authorized Signatory / Director</div>
+                        <div style="font-size: 10px; color: #64748b;">A.P. Coaching Classes</div>
+                        <div style="font-size: 11.5px; color: #1B2240; font-weight: 800; margin-top: 2px;">Mob: 9981182741</div>
+                    </div>
+                </td>
+            </tr>
+        </table>
 
         <!-- Footer Note -->
         <div class="footer-note">
@@ -591,48 +603,68 @@ const buildReceiptHtml = (receipt, logoUrl) => {
 </html>`;
 };
 
-// High-resolution A4 PDF Document Generator (Isolated from mobile viewport)
+// High-resolution A4 PDF Document Generator (Isolated from mobile viewport via dedicated 794px desktop iframe)
 const generatePdfDocument = async (receipt) => {
     const logoUrl = await getLogoDataUrl();
     const cardHtml = buildReceiptCardHtml(receipt, logoUrl);
     const cssContent = getReceiptCss();
 
-    // Isolated off-screen container appended directly to document.body
-    // Fixed at exact desktop 794px width (A4 proportion at 96 DPI)
-    const container = document.createElement('div');
-    container.id = 'apc-receipt-pdf-render-root';
-    container.style.cssText = [
-        'position: fixed',
-        'top: 0',
-        'left: 0',
-        'width: 794px !important',
-        'min-width: 794px !important',
-        'max-width: 794px !important',
-        'box-sizing: border-box',
-        'background: #ffffff',
-        'z-index: -99999',
-        'margin: 0',
-        'padding: 0',
-        'pointer-events: none',
-        'overflow: visible'
-    ].join(';');
+    // Isolated off-screen iframe to guarantee true desktop 794px viewport on mobile devices (Android/iOS)
+    const existingIframe = document.getElementById('apc-receipt-pdf-render-frame');
+    if (existingIframe) existingIframe.remove();
 
-    container.innerHTML = `<style>${cssContent}</style>${cardHtml}`;
-    document.body.appendChild(container);
+    const iframe = document.createElement('iframe');
+    iframe.id = 'apc-receipt-pdf-render-frame';
+    iframe.style.position = 'fixed';
+    iframe.style.top = '-99999px';
+    iframe.style.left = '-99999px';
+    iframe.style.width = '794px';
+    iframe.style.height = '1123px';
+    iframe.style.border = 'none';
+    iframe.style.opacity = '0';
+    iframe.style.pointerEvents = 'none';
+    iframe.style.zIndex = '-99999';
+    document.body.appendChild(iframe);
 
-    // Wait for the logo image if still loading
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=794, initial-scale=1">
+    <style>
+        ${cssContent}
+        html, body {
+            width: 794px !important;
+            min-width: 794px !important;
+            max-width: 794px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            overflow: visible !important;
+        }
+    </style>
+</head>
+<body style="width:794px; min-width:794px; max-width:794px; margin:0; padding:0; background:#ffffff;">
+    ${cardHtml}
+</body>
+</html>`);
+    doc.close();
+
+    // Wait for the iframe DOM and images to fully render
     await new Promise((resolve) => {
-        const img = container.querySelector('img.logo');
+        const img = doc.querySelector('img.logo');
         if (img && !img.complete) {
-            img.onload = () => setTimeout(resolve, 40);
-            img.onerror = () => setTimeout(resolve, 40);
+            img.onload = () => setTimeout(resolve, 80);
+            img.onerror = () => setTimeout(resolve, 80);
             setTimeout(resolve, 500);
         } else {
-            setTimeout(resolve, 40);
+            setTimeout(resolve, 80);
         }
     });
 
-    const cardElement = container.querySelector('.receipt-card') || container;
+    const cardElement = doc.querySelector('.receipt-card') || doc.body;
 
     const canvas = await html2canvas(cardElement, {
         scale: 2, // 2x DPI for crisp high-resolution A4
@@ -640,15 +672,15 @@ const generatePdfDocument = async (receipt) => {
         backgroundColor: '#ffffff',
         logging: false,
         width: 794,
-        windowWidth: 1200, // Forces desktop layout evaluation
+        windowWidth: 794,
         scrollX: 0,
         scrollY: 0,
         x: 0,
         y: 0
     });
 
-    // Remove the temporary container immediately
-    container.remove();
+    // Remove the temporary iframe immediately
+    iframe.remove();
 
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
     const pdf = new jsPDF({

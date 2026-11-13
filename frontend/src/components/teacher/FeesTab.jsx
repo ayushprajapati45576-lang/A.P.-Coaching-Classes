@@ -548,7 +548,7 @@ const FeesTab = () => {
                 </div>
 
                 {/* Class Selector Buttons */}
-                <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', paddingBottom: '0.25rem' }}>
                     {classList.map(cls => {
                         const isSelected = selectedClass === cls;
                         return (
@@ -716,6 +716,19 @@ const FeesTab = () => {
                                         <div>
                                             <div style={{ fontWeight: '600', color: 'var(--color-text-main)', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                                                 <span>{student.full_name ?? 'Unknown'}</span>
+                                                {(student.enrollment_status === 'inactive' || student.enrollment_status === 'leave') && (
+                                                    <span style={{
+                                                        fontSize: '0.72rem',
+                                                        padding: '2px 8px',
+                                                        borderRadius: '99px',
+                                                        background: 'rgba(239, 68, 68, 0.15)',
+                                                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                                                        color: '#ef4444',
+                                                        fontWeight: '700'
+                                                    }}>
+                                                        Inactive
+                                                    </span>
+                                                )}
                                                 {(selectedClass === 'All' || searchQuery) && (
                                                     <span style={{
                                                         fontSize: '0.72rem',

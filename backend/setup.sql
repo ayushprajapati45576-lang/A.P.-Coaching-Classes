@@ -27,10 +27,15 @@ CREATE TABLE students (
     phone VARCHAR(20),
     class_name VARCHAR(50) DEFAULT 'General',
     enrollment_date DATE DEFAULT CURRENT_DATE,
+    enrollment_status VARCHAR(20) DEFAULT 'active' CHECK (enrollment_status IN ('active', 'inactive', 'enrolled', 'leave')),
+    batch VARCHAR(20) DEFAULT 'Both' CHECK (batch IN ('Morning', 'Evening', 'Both')),
     total_fees NUMERIC(10,2) NULL,
     fees_start_date DATE NULL,
     fees_due_date DATE NULL
 );
+
+-- Optional migration for existing installations:
+-- ALTER TABLE students ADD COLUMN IF NOT EXISTS enrollment_status VARCHAR(20) DEFAULT 'enrolled';
 
 -- 3. Notes Table
 CREATE TABLE notes (

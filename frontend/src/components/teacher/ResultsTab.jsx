@@ -106,7 +106,7 @@ const ResultsTab = () => {
                 </div>
 
                 {loading ? <p>Loading...</p> : results.length === 0 ? <p>No results found.</p> : (
-                    <div style={{ overflowX: 'auto' }}>
+                    <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', boxSizing: 'border-box', WebkitOverflowScrolling: 'touch' }}>
                         <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ borderBottom: '1px solid var(--color-border)' }}>

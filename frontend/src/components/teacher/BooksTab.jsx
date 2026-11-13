@@ -154,7 +154,7 @@ const BooksTab = () => {
                 {sectionTitle} <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>({bookList.length})</span>
             </h3>
             {bookList.length === 0 ? <p style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>No books in this section.</p> : (
-                <div style={{ overflowX: 'auto', background: 'var(--color-surface-hover)', borderRadius: '8px', padding: '1rem' }}>
+                <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', background: 'var(--color-surface-hover)', borderRadius: '8px', padding: '1rem', boxSizing: 'border-box', WebkitOverflowScrolling: 'touch' }}>
                     <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
