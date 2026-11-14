@@ -1,18 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import styles from './Dashboard.module.css';
-import { ChevronLeft, ChevronRight, Menu, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Menu, X, Loader2 } from 'lucide-react';
 
-import OverviewTab from '../components/teacher/OverviewTab';
-import StudentsTab from '../components/teacher/StudentsTab';
-import NotesTab from '../components/teacher/NotesTab';
-import BooksTab from '../components/teacher/BooksTab';
-import AttendanceTab from '../components/teacher/AttendanceTab';
-import NoticesTab from '../components/teacher/NoticesTab';
-import LiveClassTab from '../components/teacher/LiveClassTab';
-import ResultsTab from '../components/teacher/ResultsTab';
-import FeesTab from '../components/teacher/FeesTab';
-import QuizzesTab from '../components/teacher/QuizzesTab';
+const OverviewTab = lazy(() => import('../components/teacher/OverviewTab'));
+const StudentsTab = lazy(() => import('../components/teacher/StudentsTab'));
+const NotesTab = lazy(() => import('../components/teacher/NotesTab'));
+const BooksTab = lazy(() => import('../components/teacher/BooksTab'));
+const AttendanceTab = lazy(() => import('../components/teacher/AttendanceTab'));
+const NoticesTab = lazy(() => import('../components/teacher/NoticesTab'));
+const LiveClassTab = lazy(() => import('../components/teacher/LiveClassTab'));
+const ResultsTab = lazy(() => import('../components/teacher/ResultsTab'));
+const FeesTab = lazy(() => import('../components/teacher/FeesTab'));
+const QuizzesTab = lazy(() => import('../components/teacher/QuizzesTab'));
+
+const TabLoader = () => (
+    <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '260px',
+        width: '100%',
+        color: '#E08A00',
+        gap: '10px',
+        fontSize: '0.92rem',
+        fontWeight: '600'
+    }}>
+        <Loader2 size={24} className="animate-spin" />
+        <span>Loading Tab...</span>
+    </div>
+);
 
 const TeacherDashboard = () => {
     const { user, logout } = useAuth();
@@ -152,7 +169,9 @@ const TeacherDashboard = () => {
                     </div>
                 </header>
                 <div className={styles.content}>
-                    {renderTabContent()}
+                    <Suspense fallback={<TabLoader />}>
+                        {renderTabContent()}
+                    </Suspense>
                 </div>
             </main>
         </div>

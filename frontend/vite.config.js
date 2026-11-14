@@ -23,6 +23,29 @@ export default defineConfig({
     }
   },
   build: {
-    chunkSizeWarningLimit: 2000
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('three') || id.includes('@react-three')) {
+              return 'vendor-three';
+            }
+            if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('react-pdf') || id.includes('pdfjs-dist')) {
+              return 'vendor-pdf';
+            }
+            if (id.includes('framer-motion')) {
+              return 'vendor-motion';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+              return 'vendor-core';
+            }
+          }
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1200
   }
 })

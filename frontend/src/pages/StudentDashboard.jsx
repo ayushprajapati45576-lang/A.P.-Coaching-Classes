@@ -1,18 +1,35 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import styles from './Dashboard.module.css';
-import { ChevronLeft, ChevronRight, Menu, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Menu, X, Loader2 } from 'lucide-react';
 
-// Import student components
-import StudentOverviewTab from '../components/student/StudentOverviewTab';
-import StudentNotesTab from '../components/student/StudentNotesTab';
-import StudentBooksTab from '../components/student/StudentBooksTab';
-import StudentNoticesTab from '../components/student/StudentNoticesTab';
-import StudentAttendanceTab from '../components/student/StudentAttendanceTab';
-import StudentResultsTab from '../components/student/StudentResultsTab';
-import StudentFeesTab from '../components/student/StudentFeesTab';
-import StudentLiveClassTab from '../components/student/StudentLiveClassTab';
-import StudentQuizzesTab from '../components/student/StudentQuizzesTab';
+// Lazily load student components for rapid dashboard loading & small initial bundle
+const StudentOverviewTab = lazy(() => import('../components/student/StudentOverviewTab'));
+const StudentNotesTab = lazy(() => import('../components/student/StudentNotesTab'));
+const StudentBooksTab = lazy(() => import('../components/student/StudentBooksTab'));
+const StudentNoticesTab = lazy(() => import('../components/student/StudentNoticesTab'));
+const StudentAttendanceTab = lazy(() => import('../components/student/StudentAttendanceTab'));
+const StudentResultsTab = lazy(() => import('../components/student/StudentResultsTab'));
+const StudentFeesTab = lazy(() => import('../components/student/StudentFeesTab'));
+const StudentLiveClassTab = lazy(() => import('../components/student/StudentLiveClassTab'));
+const StudentQuizzesTab = lazy(() => import('../components/student/StudentQuizzesTab'));
+
+const TabLoader = () => (
+    <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '260px',
+        width: '100%',
+        color: '#E08A00',
+        gap: '10px',
+        fontSize: '0.92rem',
+        fontWeight: '600'
+    }}>
+        <Loader2 size={24} className="animate-spin" />
+        <span>Loading Tab...</span>
+    </div>
+);
 
 const StudentDashboard = () => {
     const { user, logout } = useAuth();
@@ -167,7 +184,9 @@ const StudentDashboard = () => {
         };
 
         checkNotifications();
-        const interval = setInterval(checkNotifications, 10000); // Check every 10 seconds
+        const interval = setInterval(() => {
+            if (!document.hidden) checkNotifications();
+        }, 15000); // Check every 15 seconds when tab is active
 
         const handleVisibilityChange = () => {
             if (!document.hidden) checkNotifications();
@@ -363,15 +382,17 @@ const StudentDashboard = () => {
                     </div>
                 </header>
                 <div className={styles.content}>
-                    {activeTab === 'overview' && <StudentOverviewTab setActiveTab={setActiveTab} />}
-                    {activeTab === 'notes' && <StudentNotesTab />}
-                    {activeTab === 'books' && <StudentBooksTab />}
-                    {activeTab === 'notices' && <StudentNoticesTab />}
-                    {activeTab === 'attendance' && <StudentAttendanceTab />}
-                    {activeTab === 'results' && <StudentResultsTab />}
-                    {activeTab === 'fees' && <StudentFeesTab />}
-                    {activeTab === 'live' && <StudentLiveClassTab />}
-                    {activeTab === 'quizzes' && <StudentQuizzesTab />}
+                    <Suspense fallback={<TabLoader />}>
+                        {activeTab === 'overview' && <StudentOverviewTab setActiveTab={setActiveTab} />}
+                        {activeTab === 'notes' && <StudentNotesTab />}
+                        {activeTab === 'books' && <StudentBooksTab />}
+                        {activeTab === 'notices' && <StudentNoticesTab />}
+                        {activeTab === 'attendance' && <StudentAttendanceTab />}
+                        {activeTab === 'results' && <StudentResultsTab />}
+                        {activeTab === 'fees' && <StudentFeesTab />}
+                        {activeTab === 'live' && <StudentLiveClassTab />}
+                        {activeTab === 'quizzes' && <StudentQuizzesTab />}
+                    </Suspense>
                 </div>
             </main>
         </div>

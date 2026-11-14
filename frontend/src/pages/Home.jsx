@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, Video, TrendingUp, Bell, ArrowRight, Activity, Users, Star, Menu, X, Check, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './Home.module.css';
 import heroImage from '../assets/hero-image.jpg';
-import Background3D from '../components/common/Background3D';
 import Reveal from '../components/common/Reveal';
 import Tilt from '../components/common/Tilt';
+
+const Background3D = lazy(() => import('../components/common/Background3D'));
 
 const Home = () => {
   const navigate = useNavigate();
@@ -70,7 +71,9 @@ const Home = () => {
   return (
     <div className={styles.homeContainer}>
       {/* Fixed 3D Background (React Three Fiber) */}
-      <Background3D />
+      <Suspense fallback={null}>
+        <Background3D />
+      </Suspense>
 
       {/* Fixed 64px Grid Background with Radial Mask */}
       <div className={styles.fixedGridOverlay}></div>

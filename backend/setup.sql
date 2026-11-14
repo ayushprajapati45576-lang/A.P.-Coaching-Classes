@@ -152,6 +152,15 @@ CREATE TABLE quiz_results (
 -- ALTER TABLE payments ADD COLUMN IF NOT EXISTS fee_type VARCHAR(20) DEFAULT 'Yearly';
 -- ALTER TABLE payments ADD COLUMN IF NOT EXISTS month_for VARCHAR(50) NULL;
 
+-- 13. Recommended Performance Indexes
+-- CREATE INDEX IF NOT EXISTS idx_attendance_date_session ON attendance(date, session_type);
+-- CREATE INDEX IF NOT EXISTS idx_attendance_student_id ON attendance(student_id);
+-- CREATE INDEX IF NOT EXISTS idx_payments_student_id ON payments(student_id);
+-- CREATE INDEX IF NOT EXISTS idx_notices_created_at ON notices(created_at DESC);
+-- CREATE INDEX IF NOT EXISTS idx_notes_class_name ON notes(class_name);
+-- CREATE INDEX IF NOT EXISTS idx_books_class_name ON books(class_name);
+-- CREATE INDEX IF NOT EXISTS idx_results_student_id ON results(student_id);
+
 -- 9. Insert Dummy Teacher Account
 -- Email: teacher@coaching.com
 -- Password: teacher123

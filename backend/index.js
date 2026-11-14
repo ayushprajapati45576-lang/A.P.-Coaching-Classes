@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const multer = require('multer');
 const path = require('path');
+const zlib = require('zlib');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const supabase = require('./config/supabase');
 const { authenticateToken, requireRole } = require('./middleware/auth');
@@ -35,6 +36,35 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
+
+// High-performance native Gzip compression for API responses > 1KB
+app.use((req, res, next) => {
+    const acceptEncoding = req.headers['accept-encoding'] || '';
+    if (!acceptEncoding.includes('gzip')) return next();
+
+    const originalJson = res.json;
+    res.json = function (obj) {
+        try {
+            const bodyStr = JSON.stringify(obj);
+            if (bodyStr.length > 1024) {
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                res.setHeader('Content-Encoding', 'gzip');
+                res.setHeader('Vary', 'Accept-Encoding');
+                zlib.gzip(Buffer.from(bodyStr), (err, compressed) => {
+                    if (err) {
+                        res.removeHeader('Content-Encoding');
+                        return originalJson.call(this, obj);
+                    }
+                    res.setHeader('Content-Length', compressed.length);
+                    res.send(compressed);
+                });
+                return this;
+            }
+        } catch (e) {}
+        return originalJson.call(this, obj);
+    };
+    next();
+});
 
 // Root route to check if backend is running
 app.get('/', (req, res) => {
@@ -279,8 +309,18 @@ app.post('/api/students', authenticateToken, requireRole('teacher'), async (req,
     }
 });
 
+// --- High-Performance In-Memory Metadata Cache ---
+const CACHE_TTL_MS = 60 * 1000;
+let cacheEnrollment = { data: null, expiresAt: 0 };
+let cacheBatches = { data: null, expiresAt: 0 };
+let cacheFeeConfigs = { data: null, expiresAt: 0 };
+let cachePaymentMeta = { data: null, expiresAt: 0 };
+
 // --- Student Status (Active / Inactive) Helpers ---
 async function getStudentEnrollmentStatuses() {
+    if (cacheEnrollment.data && Date.now() < cacheEnrollment.expiresAt) {
+        return cacheEnrollment.data;
+    }
     try {
         const { data: notice } = await supabase
             .from('notices')
@@ -289,7 +329,9 @@ async function getStudentEnrollmentStatuses() {
             .maybeSingle();
         if (notice && notice.content) {
             try {
-                return JSON.parse(notice.content);
+                const parsed = JSON.parse(notice.content);
+                cacheEnrollment = { data: parsed, expiresAt: Date.now() + CACHE_TTL_MS };
+                return parsed;
             } catch (e) {
                 return {};
             }
@@ -305,6 +347,7 @@ async function setStudentEnrollmentStatus(studentId, status, teacherUserId) {
     const cleanStatus = isInactive ? 'inactive' : 'active';
     const statuses = await getStudentEnrollmentStatuses();
     statuses[studentId] = cleanStatus;
+    cacheEnrollment = { data: statuses, expiresAt: Date.now() + CACHE_TTL_MS };
 
     const { data: existing } = await supabase
         .from('notices')
@@ -333,6 +376,9 @@ async function setStudentEnrollmentStatus(studentId, status, teacherUserId) {
 
 // --- Student Batch Helpers (Morning / Evening / Both) ---
 async function getStudentBatches() {
+    if (cacheBatches.data && Date.now() < cacheBatches.expiresAt) {
+        return cacheBatches.data;
+    }
     try {
         const { data: notice } = await supabase
             .from('notices')
@@ -341,7 +387,9 @@ async function getStudentBatches() {
             .maybeSingle();
         if (notice && notice.content) {
             try {
-                return JSON.parse(notice.content);
+                const parsed = JSON.parse(notice.content);
+                cacheBatches = { data: parsed, expiresAt: Date.now() + CACHE_TTL_MS };
+                return parsed;
             } catch (e) {
                 return {};
             }
@@ -356,6 +404,7 @@ async function setStudentBatch(studentId, batch, teacherUserId) {
     const cleanBatch = ['Morning', 'Evening', 'Both'].includes(batch) ? batch : 'Both';
     const batches = await getStudentBatches();
     batches[studentId] = cleanBatch;
+    cacheBatches = { data: batches, expiresAt: Date.now() + CACHE_TTL_MS };
 
     const { data: existing } = await supabase
         .from('notices')
@@ -383,6 +432,9 @@ async function setStudentBatch(studentId, batch, teacherUserId) {
 
 // --- Student Fee Config Helpers (Monthly vs Yearly) ---
 async function getStudentFeeConfigs() {
+    if (cacheFeeConfigs.data && Date.now() < cacheFeeConfigs.expiresAt) {
+        return cacheFeeConfigs.data;
+    }
     try {
         const { data: notice } = await supabase
             .from('notices')
@@ -391,7 +443,9 @@ async function getStudentFeeConfigs() {
             .maybeSingle();
         if (notice && notice.content) {
             try {
-                return JSON.parse(notice.content);
+                const parsed = JSON.parse(notice.content);
+                cacheFeeConfigs = { data: parsed, expiresAt: Date.now() + CACHE_TTL_MS };
+                return parsed;
             } catch (e) {
                 return {};
             }
@@ -408,6 +462,7 @@ async function setStudentFeeConfig(studentId, config, teacherUserId) {
         ...(configs[studentId] || {}),
         ...config
     };
+    cacheFeeConfigs = { data: configs, expiresAt: Date.now() + CACHE_TTL_MS };
 
     const { data: existing } = await supabase
         .from('notices')
@@ -440,6 +495,9 @@ async function setStudentFeeConfig(studentId, config, teacherUserId) {
 
 // Payment metadata helpers (fee_type, month_for)
 async function getPaymentMetaMap() {
+    if (cachePaymentMeta.data && Date.now() < cachePaymentMeta.expiresAt) {
+        return cachePaymentMeta.data;
+    }
     try {
         const { data: notice } = await supabase
             .from('notices')
@@ -448,7 +506,9 @@ async function getPaymentMetaMap() {
             .maybeSingle();
         if (notice && notice.content) {
             try {
-                return JSON.parse(notice.content);
+                const parsed = JSON.parse(notice.content);
+                cachePaymentMeta = { data: parsed, expiresAt: Date.now() + CACHE_TTL_MS };
+                return parsed;
             } catch (e) {
                 return {};
             }
@@ -466,6 +526,7 @@ async function setPaymentMeta(paymentId, meta, teacherUserId) {
         ...(metaMap[paymentId] || {}),
         ...meta
     };
+    cachePaymentMeta = { data: metaMap, expiresAt: Date.now() + CACHE_TTL_MS };
 
     const { data: existing } = await supabase
         .from('notices')
@@ -496,16 +557,15 @@ async function setPaymentMeta(paymentId, meta, teacherUserId) {
 
 app.get('/api/students', authenticateToken, requireRole('teacher'), async (req, res) => {
     try {
-        // In Supabase, we can use relations
-        const { data: students, error } = await supabase
-            .from('students')
-            .select('*, users!inner(email, is_approved)');
+        const [studentsRes, statuses, batches, feeConfigs] = await Promise.all([
+            supabase.from('students').select('*, users!inner(email, is_approved)'),
+            getStudentEnrollmentStatuses(),
+            getStudentBatches(),
+            getStudentFeeConfigs()
+        ]);
         
-        if (error) throw error;
-
-        const statuses = await getStudentEnrollmentStatuses();
-        const batches = await getStudentBatches();
-        const feeConfigs = await getStudentFeeConfigs();
+        if (studentsRes.error) throw studentsRes.error;
+        const students = studentsRes.data || [];
 
         const formatted = students.map(s => {
             const rawStatus = s.enrollment_status || statuses[s.id] || 'active';
@@ -859,6 +919,8 @@ app.delete('/api/books/:id', authenticateToken, requireRole('teacher'), async (r
 });
 
 // --- Notices ---
+let cacheUnreadNotices = { data: null, expiresAt: 0, lastSeen: '' };
+
 app.post('/api/notices', authenticateToken, requireRole('teacher'), async (req, res) => {
     const { title, content } = req.body;
     if (!title || !content) return res.status(400).json({ error: "Title and content are required" });
@@ -866,6 +928,7 @@ app.post('/api/notices', authenticateToken, requireRole('teacher'), async (req, 
     try {
         const noticeId = crypto.randomUUID();
         await supabase.from('notices').insert({ id: noticeId, title, content, created_by: req.user.id });
+        cacheUnreadNotices.expiresAt = 0; // invalidate notification cache immediately
         const { data } = await supabase.from('notices').select('*').eq('id', noticeId).maybeSingle();
         res.status(201).json({ message: "Notice created successfully", notice: data });
     } catch (err) {
@@ -881,6 +944,8 @@ app.get('/api/notices', authenticateToken, async (req, res) => {
             .neq('title', '__LIVE_CLASS_STATUS__')
             .neq('title', '__STUDENT_ENROLLMENT_STATUS__')
             .neq('title', '__STUDENT_BATCHES__')
+            .neq('title', '__STUDENT_FEE_CONFIGS__')
+            .neq('title', '__PAYMENTS_META__')
             .order('created_at', { ascending: false });
         res.json(notices || []);
     } catch (err) {
@@ -1165,27 +1230,30 @@ app.put('/api/fees/:id', authenticateToken, requireRole('teacher'), async (req, 
 
 app.get('/api/student/fees', authenticateToken, async (req, res) => {
     try {
-        const { data: student } = await supabase
-            .from('students')
-            .select('id, full_name, father_name, phone, class_name, total_fees, fees_start_date, fees_due_date')
-            .eq('id', req.user.id)
-            .maybeSingle();
+        const [studentRes, studentPaymentsRes, oldFeesRes, feeConfigs, paymentMetaMap] = await Promise.all([
+            supabase
+                .from('students')
+                .select('id, full_name, father_name, phone, class_name, total_fees, fees_start_date, fees_due_date')
+                .eq('id', req.user.id)
+                .maybeSingle(),
+            supabase
+                .from('payments')
+                .select('*')
+                .eq('student_id', req.user.id)
+                .order('payment_date', { ascending: false })
+                .order('created_at', { ascending: false }),
+            supabase
+                .from('fees')
+                .select('*')
+                .eq('student_id', req.user.id)
+                .order('due_date', { ascending: false }),
+            getStudentFeeConfigs(),
+            getPaymentMetaMap()
+        ]);
 
-        const { data: studentPayments } = await supabase
-            .from('payments')
-            .select('*')
-            .eq('student_id', req.user.id)
-            .order('payment_date', { ascending: false })
-            .order('created_at', { ascending: false });
-
-        const { data: oldFees } = await supabase
-            .from('fees')
-            .select('*')
-            .eq('student_id', req.user.id)
-            .order('due_date', { ascending: false });
-
-        const feeConfigs = await getStudentFeeConfigs();
-        const paymentMetaMap = await getPaymentMetaMap();
+        const student = studentRes.data;
+        const studentPayments = studentPaymentsRes.data;
+        const oldFees = oldFeesRes.data;
         const feeCfg = feeConfigs[req.user.id] || {};
         const feeType = student?.fee_type || feeCfg.fee_type || 'Yearly';
         const monthlyAmount = student?.monthly_amount !== undefined && student?.monthly_amount !== null
@@ -1291,15 +1359,17 @@ app.get('/api/student/fees', authenticateToken, async (req, res) => {
 // GET /api/payments -> All payments, newest first
 app.get('/api/payments', authenticateToken, requireRole('teacher'), async (req, res) => {
     try {
-        const { data: payments, error } = await supabase
-            .from('payments')
-            .select('*')
-            .order('payment_date', { ascending: false })
-            .order('created_at', { ascending: false });
+        const [paymentsRes, paymentMetaMap] = await Promise.all([
+            supabase
+                .from('payments')
+                .select('*')
+                .order('payment_date', { ascending: false })
+                .order('created_at', { ascending: false }),
+            getPaymentMetaMap()
+        ]);
 
-        if (error) throw error;
-
-        const paymentMetaMap = await getPaymentMetaMap();
+        if (paymentsRes.error) throw paymentsRes.error;
+        const payments = paymentsRes.data;
 
         const formatted = (payments || []).map(p => {
             const meta = paymentMetaMap[p.id] || {};
@@ -1787,11 +1857,19 @@ app.get('/api/me', authenticateToken, async (req, res) => {
 app.get('/api/notifications/unread', authenticateToken, async (req, res) => {
     try {
         const { lastSeen } = req.query;
+        const now = Date.now();
+        const seenKey = lastSeen || '';
+        if (cacheUnreadNotices.data && cacheUnreadNotices.lastSeen === seenKey && now < cacheUnreadNotices.expiresAt) {
+            return res.json(cacheUnreadNotices.data);
+        }
+
         let query = supabase.from('notices')
             .select('*')
             .neq('title', '__LIVE_CLASS_STATUS__')
             .neq('title', '__STUDENT_ENROLLMENT_STATUS__')
             .neq('title', '__STUDENT_BATCHES__')
+            .neq('title', '__STUDENT_FEE_CONFIGS__')
+            .neq('title', '__PAYMENTS_META__')
             .order('created_at', { ascending: false });
 
         if (lastSeen) {
@@ -1805,11 +1883,13 @@ app.get('/api/notifications/unread', authenticateToken, async (req, res) => {
         if (error) throw error;
 
         const unreadList = notices || [];
-        res.json({ 
+        const result = { 
             count: unreadList.length,
             latestNotice: unreadList[0] || null,
             notices: unreadList.slice(0, 5)
-        });
+        };
+        cacheUnreadNotices = { data: result, expiresAt: now + 6000, lastSeen: seenKey };
+        res.json(result);
     } catch (err) {
         console.error("Notifications unread error:", err);
         res.status(500).json({ error: "Internal server error", count: 0, latestNotice: null, notices: [] });
@@ -1928,11 +2008,13 @@ app.get('/api/dashboard/stats', authenticateToken, requireRole('teacher'), async
     try {
         const { date } = req.query;
         
-        const { data: allStudents, error: studErr } = await supabase.from('students').select('id, enrollment_status');
-        if (studErr) throw studErr;
-
-        const statuses = await getStudentEnrollmentStatuses();
-        const batches = await getStudentBatches();
+        const [studRes, statuses, batches] = await Promise.all([
+            supabase.from('students').select('id, enrollment_status'),
+            getStudentEnrollmentStatuses(),
+            getStudentBatches()
+        ]);
+        if (studRes.error) throw studRes.error;
+        const allStudents = studRes.data || [];
         
         let activeCount = 0;
         let inactiveCount = 0;
@@ -1961,22 +2043,22 @@ app.get('/api/dashboard/stats', authenticateToken, requireRole('teacher'), async
         let presentEvening = 0;
         let presentToday = 0;
         if (date) {
-            const { count: morningCount } = await supabase
-                .from('attendance')
-                .select('*', { count: 'exact', head: true })
-                .eq('date', date)
-                .eq('session_type', 'Morning')
-                .eq('status', 'present');
-            presentMorning = morningCount || 0;
-
-            const { count: eveningCount } = await supabase
-                .from('attendance')
-                .select('*', { count: 'exact', head: true })
-                .eq('date', date)
-                .eq('session_type', 'Evening')
-                .eq('status', 'present');
-            presentEvening = eveningCount || 0;
-
+            const [morningRes, eveningRes] = await Promise.all([
+                supabase
+                    .from('attendance')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('date', date)
+                    .eq('session_type', 'Morning')
+                    .eq('status', 'present'),
+                supabase
+                    .from('attendance')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('date', date)
+                    .eq('session_type', 'Evening')
+                    .eq('status', 'present')
+            ]);
+            presentMorning = morningRes.count || 0;
+            presentEvening = eveningRes.count || 0;
             presentToday = presentMorning;
         }
 
