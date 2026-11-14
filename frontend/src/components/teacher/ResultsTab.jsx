@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import styles from './Tabs.module.css';
 
 const ResultsTab = () => {
+    const confirm = useConfirm();
     const [view, setView] = useState('list'); // 'list' or 'add'
 
     // List State
@@ -53,8 +55,14 @@ const ResultsTab = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this?')) return;
-        if (!window.confirm("Delete this result?")) return;
+        const ok = await confirm({
+            title: 'Delete Result?',
+            message: 'Are you sure you want to delete this result? This action cannot be undone.',
+            confirmText: 'Delete Result',
+            cancelText: 'Cancel',
+            isDanger: true
+        });
+        if (!ok) return;
         try {
             const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/results/${id}`, {
                 method: 'DELETE',

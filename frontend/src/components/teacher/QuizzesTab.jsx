@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import styles from './Tabs.module.css';
 
 const QuizzesTab = () => {
     const { user } = useAuth();
+    const confirm = useConfirm();
     const [view, setView] = useState('list'); // 'list' or 'add'
     const [quizzes, setQuizzes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -40,7 +42,14 @@ const QuizzesTab = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this quiz?')) return;
+        const ok = await confirm({
+            title: 'Delete Quiz?',
+            message: 'Are you sure you want to delete this quiz? This action cannot be undone.',
+            confirmText: 'Delete Quiz',
+            cancelText: 'Cancel',
+            isDanger: true
+        });
+        if (!ok) return;
         try {
             const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/quizzes/${id}`, {
                 method: 'DELETE',

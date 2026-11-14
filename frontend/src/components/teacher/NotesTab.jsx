@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useConfirm, useAlert } from '../../contexts/ConfirmContext';
 import styles from './Tabs.module.css';
 
 // Pre-defined subjects per class
@@ -48,6 +49,8 @@ const getBackendUrl = () => {
 };
 
 const NotesTab = () => {
+    const confirm = useConfirm();
+    const alert = useAlert();
     const [view, setView] = useState('list'); // 'list' or 'add'
     
     // Navigation State (Hierarchy: Level 1 Class -> Level 2 Subject -> Level 3 Notes)
@@ -114,7 +117,15 @@ const NotesTab = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this note?")) return;
+        const ok = await confirm({
+            title: 'Delete Note?',
+            message: 'Are you sure you want to delete this note? This action cannot be undone.',
+            confirmText: 'Delete Note',
+            cancelText: 'Cancel',
+            isDanger: true
+        });
+        if (!ok) return;
+
         try {
             const res = await fetch(`${getBackendUrl()}/api/notes/${id}`, {
                 method: 'DELETE',
@@ -123,11 +134,11 @@ const NotesTab = () => {
             if (res.ok) {
                 setNotes(notes.filter(n => n.id !== id));
             } else {
-                alert('Failed to delete note');
+                await alert({ title: 'Error', message: 'Failed to delete note', isDanger: true });
             }
         } catch (err) {
             console.error('Error deleting note:', err);
-            alert('Failed to delete note');
+            await alert({ title: 'Error', message: 'Failed to delete note', isDanger: true });
         }
     };
 

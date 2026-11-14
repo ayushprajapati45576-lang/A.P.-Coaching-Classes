@@ -1605,6 +1605,50 @@ app.put('/api/students/:id/fees', authenticateToken, requireRole('teacher'), asy
     }
 });
 
+// DELETE /api/students/:id/fees -> Reset all fees and payment history for a student
+app.delete('/api/students/:id/fees', authenticateToken, requireRole('teacher'), async (req, res) => {
+    const studentId = req.params.id;
+    try {
+        const { data: student, error: stErr } = await supabase
+            .from('students')
+            .select('id, full_name')
+            .eq('id', studentId)
+            .maybeSingle();
+
+        if (stErr || !student) {
+            return res.status(404).json({ error: "Student not found" });
+        }
+
+        // 1. Delete all payments for this student
+        await supabase.from('payments').delete().eq('student_id', studentId);
+
+        // 2. Delete legacy fees table records if any
+        await supabase.from('fees').delete().eq('student_id', studentId);
+
+        // 3. Reset fee columns in students table
+        await supabase.from('students').update({
+            total_fees: null,
+            fees_start_date: null,
+            fees_due_date: null,
+            monthly_amount: null,
+            fee_type: 'Yearly'
+        }).eq('id', studentId);
+
+        // 4. Reset in student fee configs notice & cache
+        await setStudentFeeConfig(studentId, {
+            fee_type: 'Yearly',
+            monthly_amount: null,
+            fees_start_date: null,
+            fees_due_date: null
+        }, req.user.id);
+
+        res.json({ message: "Student fee data reset successfully", student_id: studentId });
+    } catch (err) {
+        console.error("Error in DELETE /api/students/:id/fees:", err);
+        res.status(500).json({ error: err.message || "Internal server error" });
+    }
+});
+
 // POST /api/payments -> Add payment
 app.post('/api/payments', authenticateToken, requireRole('teacher'), async (req, res) => {
     const { student_id, amount, payment_date, fees_due_date, fee_type, month_for } = req.body;

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import styles from './Tabs.module.css';
 
 const NoticesTab = () => {
+    const confirm = useConfirm();
     const getBackendUrl = () => {
         if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
             return 'http://localhost:5000';
@@ -42,7 +44,14 @@ const NoticesTab = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this notice?")) return;
+        const ok = await confirm({
+            title: 'Delete Notice?',
+            message: 'Are you sure you want to delete this notice? This action cannot be undone.',
+            confirmText: 'Delete Notice',
+            cancelText: 'Cancel',
+            isDanger: true
+        });
+        if (!ok) return;
         try {
             const res = await fetch(`${getBackendUrl()}/api/notices/${id}`, {
                 method: 'DELETE',

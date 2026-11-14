@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import styles from '../teacher/Tabs.module.css';
 
 const StudentQuizzesTab = () => {
     const { user } = useAuth();
+    const confirm = useConfirm();
     const [view, setView] = useState('list'); // 'list', 'take', 'results'
     const [quizzes, setQuizzes] = useState([]);
     const [results, setResults] = useState([]);
@@ -64,7 +66,14 @@ const StudentQuizzesTab = () => {
         
         // Confirm if not all answered
         if (Object.keys(answers).length < questions.length) {
-            if (!window.confirm('You have not answered all questions. Submit anyway?')) return;
+            const ok = await confirm({
+                title: 'Unanswered Questions',
+                message: `You have answered ${Object.keys(answers).length} out of ${questions.length} questions. Are you sure you want to submit anyway?`,
+                confirmText: 'Submit Quiz',
+                cancelText: 'Keep Answering',
+                isDanger: false
+            });
+            if (!ok) return;
         }
 
         setSubmitStatus('Submitting...');

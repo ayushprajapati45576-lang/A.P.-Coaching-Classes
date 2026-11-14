@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import styles from './Tabs.module.css';
 import FeeReceiptModal from '../common/FeeReceiptModal';
-import { Printer, Search, X } from 'lucide-react';
+import { Printer, Search, X, RotateCcw } from 'lucide-react';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 // Safe fetch helper to completely prevent SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
 const safeFetchJson = async (url, options = {}) => {
@@ -35,6 +36,7 @@ const getBackendUrl = () => {
 };
 
 const FeesTab = () => {
+    const confirm = useConfirm();
     const [selectedClass, setSelectedClass] = useState('10'); // Default Class 10
     const [statusFilter, setStatusFilter] = useState('active'); // 'active', 'inactive', 'all'
     const [searchQuery, setSearchQuery] = useState('');
@@ -649,21 +651,80 @@ const FeesTab = () => {
 
     // Delete Payment
     const handleDeletePayment = async (paymentId) => {
-        if (!window.confirm("Delete this payment?")) return;
+        const ok = await confirm({
+            title: 'Delete Payment?',
+            message: 'Kya aap is payment transaction record ko delete karna chahte hain? Yeh transaction fees history me se hat jayega.',
+            confirmText: 'Delete Payment',
+            cancelText: 'Cancel',
+            isDanger: true
+        });
+        if (!ok) return;
+
         try {
-            const { ok, status, data, error } = await safeFetchJson(`${getBackendUrl()}/api/payments/${paymentId}`, {
+            const { ok: reqOk, status, data, error } = await safeFetchJson(`${getBackendUrl()}/api/payments/${paymentId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });
-            if (ok) {
+            if (reqOk) {
                 setPayments(prev => prev.filter(p => p.id !== paymentId));
                 fetchStudents();
             } else {
-                alert(data?.error || error || `Failed to delete payment (${status})`);
+                await confirm({
+                    title: 'Delete Failed',
+                    message: data?.error || error || `Failed to delete payment (${status})`,
+                    confirmText: 'OK',
+                    isDanger: false
+                });
             }
         } catch (err) {
             console.error(err);
-            alert('Failed to delete payment');
+        }
+    };
+
+    // Reset all fees and payment history for a student
+    const handleResetStudentFees = async (student) => {
+        const studentName = student.full_name || 'Student';
+        const ok = await confirm({
+            title: `Reset Fee Data?`,
+            message: `Kya aap sach me "${studentName}" ka pura fees data reset karna chahte hain?\n\n• Is student ke sabhi payment records delete ho jayenge.\n• Fee plan rate, start date aur due date reset ho jayegi.\n• Student ka account, attendance aur results bilkul safe rahenge.`,
+            confirmText: 'Reset Fee Data',
+            cancelText: 'Cancel',
+            isDanger: true
+        });
+        if (!ok) return;
+
+        try {
+            const { ok: reqOk, status, data, error } = await safeFetchJson(`${getBackendUrl()}/api/students/${student.id}/fees`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+
+            if (reqOk) {
+                // Remove payments of this student from state
+                setPayments(prev => prev.filter(p => p.student_id !== student.id));
+                // Reset student fee state
+                setStudents(prev => prev.map(s => s.id === student.id ? {
+                    ...s,
+                    total_fees: null,
+                    fees_start_date: null,
+                    fees_due_date: null,
+                    monthly_amount: null,
+                    fee_type: 'Yearly'
+                } : s));
+                // Close any open form for this student
+                if (activeForm && activeForm.studentId === student.id) {
+                    setActiveForm(null);
+                }
+            } else {
+                await confirm({
+                    title: 'Reset Failed',
+                    message: data?.error || error || `Failed to reset fees (${status})`,
+                    confirmText: 'OK',
+                    isDanger: false
+                });
+            }
+        } catch (err) {
+            console.error('Error resetting fees:', err);
         }
     };
 
@@ -1308,6 +1369,26 @@ const FeesTab = () => {
                                                             {student.fee_type === 'Monthly' ? '+ Add monthly payment' : '+ Add payment'}
                                                         </button>
                                                     )}
+                                                    <button
+                                                        onClick={() => handleResetStudentFees(student)}
+                                                        style={{
+                                                            background: 'rgba(239, 68, 68, 0.1)',
+                                                            border: '1px solid rgba(239, 68, 68, 0.28)',
+                                                            color: '#ef4444',
+                                                            padding: '0.35rem 0.85rem',
+                                                            borderRadius: '6px',
+                                                            fontSize: '0.85rem',
+                                                            fontWeight: '600',
+                                                            cursor: 'pointer',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            transition: 'all 0.15s ease'
+                                                        }}
+                                                        title="Reset all fee records and payments for this student"
+                                                    >
+                                                        <RotateCcw size={13} /> Reset Fees
+                                                    </button>
                                                 </div>
                                             </div>
                                         )}

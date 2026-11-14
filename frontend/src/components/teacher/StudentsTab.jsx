@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useConfirm, useAlert } from '../../contexts/ConfirmContext';
 import styles from './Tabs.module.css';
 
 const StudentsTab = () => {
     const { user } = useAuth();
+    const confirm = useConfirm();
+    const alert = useAlert();
     const [view, setView] = useState('list'); // 'list', 'add', or 'edit'
     const [editingId, setEditingId] = useState(null);
 
@@ -42,7 +45,14 @@ const StudentsTab = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this student?')) return;
+        const ok = await confirm({
+            title: 'Delete Student?',
+            message: 'Are you sure you want to delete this student? This action cannot be undone.',
+            confirmText: 'Delete Student',
+            cancelText: 'Cancel',
+            isDanger: true
+        });
+        if (!ok) return;
 
         try {
             const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/students/${id}`, {
@@ -55,11 +65,11 @@ const StudentsTab = () => {
                 setSelectedIds(selectedIds.filter(selId => selId !== id));
             } else {
                 const data = await res.json();
-                alert(data.error || 'Failed to delete student');
+                await alert({ title: 'Error', message: data.error || 'Failed to delete student', isDanger: true });
             }
         } catch (err) {
             console.error(err);
-            alert('Failed to delete student');
+            await alert({ title: 'Error', message: 'Failed to delete student', isDanger: true });
         }
     };
 
@@ -74,21 +84,28 @@ const StudentsTab = () => {
                 setStudents(students.map(s => s.id === id ? { ...s, is_approved: 1 } : s));
             } else {
                 const data = await res.json();
-                alert(data.error || 'Failed to approve student');
+                await alert({ title: 'Error', message: data.error || 'Failed to approve student', isDanger: true });
             }
         } catch (err) {
             console.error(err);
-            alert('Failed to approve student');
+            await alert({ title: 'Error', message: 'Failed to approve student', isDanger: true });
         }
     };
 
     const handleToggleStatus = async (id, newStatus, studentName) => {
         const isNowInactive = newStatus === 'inactive' || newStatus === 'leave';
         const confirmMsg = isNowInactive
-            ? `Kya aap "${studentName}" ko 'Inactive' mark karna chahte hain?\n\n• Baccha active dashboard counts se hat jayega.\n• Bacche ka koi bhi purana data (attendance, fees, marks) delete nahi hoga aur bilkul safe rahega.\n• Aap ise baad me kabhi bhi wapas 'Active' kar sakte hain.`
-            : `Kya aap "${studentName}" ko wapas 'Active' mark karna chahte hain?\n\n• Baccha active dashboard roster aur counts me shamil ho jayega.`;
+            ? `Kya aap "${studentName}" ko 'Inactive' mark karna chahte hain?\n\n• Baccha active dashboard counts se hat jayega.\n• Bacche ka koi bhi purana data (attendance, fees, marks) delete nahi hoga aur bilkul safe rahega.\n• Baccha portal me login nahi kar payega jab tak inactive hai.\n• Aap ise baad me kabhi bhi wapas 'Active' kar sakte hain.`
+            : `Kya aap "${studentName}" ko wapas 'Active' mark karna chahte hain?\n\n• Baccha active dashboard roster aur counts me shamil ho jayega.\n• Baccha portal login kar payega.`;
         
-        if (!window.confirm(confirmMsg)) return;
+        const ok = await confirm({
+            title: isNowInactive ? 'Mark Student Inactive?' : 'Mark Student Active?',
+            message: confirmMsg,
+            confirmText: isNowInactive ? 'Mark Inactive' : 'Mark Active',
+            cancelText: 'Cancel',
+            isDanger: isNowInactive
+        });
+        if (!ok) return;
 
         try {
             const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/students/${id}/status`, {
@@ -104,11 +121,11 @@ const StudentsTab = () => {
             if (res.ok) {
                 setStudents(prev => prev.map(s => s.id === id ? { ...s, enrollment_status: newStatus } : s));
             } else {
-                alert(data.error || 'Failed to update student status');
+                await alert({ title: 'Error', message: data.error || 'Failed to update student status', isDanger: true });
             }
         } catch (err) {
             console.error(err);
-            alert('Failed to update student status');
+            await alert({ title: 'Error', message: 'Failed to update student status', isDanger: true });
         }
     };
 
@@ -124,7 +141,14 @@ const StudentsTab = () => {
 
     const handleBulkDelete = async () => {
         if (selectedIds.length === 0) return;
-        if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} students?`)) return;
+        const ok = await confirm({
+            title: 'Delete Selected Students?',
+            message: `Are you sure you want to delete ${selectedIds.length} students? This cannot be undone.`,
+            confirmText: `Delete ${selectedIds.length} Students`,
+            cancelText: 'Cancel',
+            isDanger: true
+        });
+        if (!ok) return;
 
         try {
             const res = await fetch((import.meta.env.VITE_BACKEND_URL || '') + '/api/students/bulk-delete', {
@@ -141,11 +165,11 @@ const StudentsTab = () => {
                 setSelectedIds([]);
             } else {
                 const data = await res.json();
-                alert(data.error || 'Failed to delete students');
+                await alert({ title: 'Error', message: data.error || 'Failed to delete students', isDanger: true });
             }
         } catch (err) {
             console.error(err);
-            alert('Failed to delete students');
+            await alert({ title: 'Error', message: 'Failed to delete students', isDanger: true });
         }
     };
 

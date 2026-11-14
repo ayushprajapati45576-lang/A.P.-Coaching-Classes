@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ConfirmProvider } from './contexts/ConfirmContext';
 import InstallPwaPopup from './components/InstallPwaPopup';
 
 const Home = lazy(() => import('./pages/Home'));
@@ -87,8 +88,10 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppRoutes />
-        <InstallPwaPopup />
+        <ConfirmProvider>
+          <AppRoutes />
+          <InstallPwaPopup />
+        </ConfirmProvider>
       </AuthProvider>
     </Router>
   );
