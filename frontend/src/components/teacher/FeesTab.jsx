@@ -144,6 +144,36 @@ const FeesTab = () => {
         return list;
     };
 
+    // Helper: Compute exact same day of next month (with month-end clamping)
+    const getNextMonthSameDate = (dateInput) => {
+        try {
+            if (!dateInput) return '';
+            const dateStr = String(dateInput).slice(0, 10);
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return '';
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1; // 0-indexed
+            const day = parseInt(parts[2], 10);
+
+            let nextYear = year;
+            let nextMonth = month + 1;
+            if (nextMonth > 11) {
+                nextMonth = 0;
+                nextYear += 1;
+            }
+
+            const daysInNextMonth = new Date(nextYear, nextMonth + 1, 0).getDate();
+            const clampedDay = Math.min(day, daysInNextMonth);
+
+            const yyyy = nextYear;
+            const mm = String(nextMonth + 1).padStart(2, '0');
+            const dd = String(clampedDay).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        } catch {
+            return '';
+        }
+    };
+
     // Helper: Normalize class name for strict matching (e.g. 'Class 10' -> '10', '10' -> '10', 'General' -> 'General')
     const normalizeClass = (cls) => {
         if (!cls) return 'General';
@@ -266,13 +296,18 @@ const FeesTab = () => {
     const handleOpenFeesForm = (student) => {
         const isFirstTime = !student.total_fees || Number(student.total_fees) <= 0;
         const currentFeeType = student.fee_type === 'Monthly' ? 'Monthly' : 'Yearly';
+        const startDate = student.fees_start_date ? String(student.fees_start_date).slice(0, 10) : getTodayString();
+        const initialDueDate = student.fees_due_date 
+            ? String(student.fees_due_date).slice(0, 10) 
+            : (currentFeeType === 'Monthly' ? getNextMonthSameDate(startDate) : '');
+
         setFormError('');
         setFormState({
             fee_type: currentFeeType,
             total_fees: student.total_fees ? String(student.total_fees) : '',
             monthly_amount: student.monthly_amount ? String(student.monthly_amount) : (currentFeeType === 'Monthly' && student.total_fees ? String(student.total_fees) : ''),
-            fees_start_date: student.fees_start_date ? String(student.fees_start_date).slice(0, 10) : getTodayString(),
-            fees_due_date: student.fees_due_date ? String(student.fees_due_date).slice(0, 10) : '',
+            fees_start_date: startDate,
+            fees_due_date: initialDueDate,
             paid_now: '',
             paid_date: getTodayString(),
             month_for: getMonthNameString(new Date())
@@ -289,12 +324,16 @@ const FeesTab = () => {
         const defaultAmount = isMonthly && (student.monthly_amount || student.total_fees) 
             ? String(student.monthly_amount || student.total_fees) 
             : '';
+        const todayStr = getTodayString();
+        // Automatically default next due date to next month's same date for monthly students
+        const autoDueDate = isMonthly ? getNextMonthSameDate(todayStr) : (student.fees_due_date ? String(student.fees_due_date).slice(0, 10) : '');
+
         setFormError('');
         setFormState({
             fee_type: isMonthly ? 'Monthly' : 'Yearly',
             amount: defaultAmount,
-            payment_date: getTodayString(),
-            fees_due_date: student.fees_due_date ? String(student.fees_due_date).slice(0, 10) : '',
+            payment_date: todayStr,
+            fees_due_date: autoDueDate,
             month_for: getMonthNameString(new Date())
         });
         setActiveForm({
@@ -306,12 +345,17 @@ const FeesTab = () => {
     // Open "Edit payment" form
     const handleOpenEditPayment = (student, payment) => {
         const isMonthly = student.fee_type === 'Monthly' || payment.fee_type === 'Monthly';
+        const payDate = payment.payment_date ? String(payment.payment_date).slice(0, 10) : getTodayString();
+        const autoDueDate = isMonthly 
+            ? (student.fees_due_date ? String(student.fees_due_date).slice(0, 10) : getNextMonthSameDate(payDate)) 
+            : (student.fees_due_date ? String(student.fees_due_date).slice(0, 10) : '');
+
         setFormError('');
         setFormState({
             fee_type: isMonthly ? 'Monthly' : 'Yearly',
             amount: String(payment.amount),
-            payment_date: payment.payment_date ? String(payment.payment_date).slice(0, 10) : getTodayString(),
-            fees_due_date: student.fees_due_date ? String(student.fees_due_date).slice(0, 10) : '',
+            payment_date: payDate,
+            fees_due_date: autoDueDate,
             month_for: payment.month_for || getMonthNameString(new Date(payment.payment_date))
         });
         setActiveForm({
@@ -418,11 +462,15 @@ const FeesTab = () => {
 
             setFormLoading(true);
             try {
+                const autoMonthlyDue = formState.fees_due_date 
+                    ? formState.fees_due_date.slice(0, 10) 
+                    : getNextMonthSameDate((isFirstTime && paidNow > 0 && formState.paid_date) ? formState.paid_date : formState.fees_start_date);
+
                 const body = {
                     fee_type: 'Monthly',
                     monthly_amount: numMonthly,
                     fees_start_date: formState.fees_start_date.slice(0, 10),
-                    fees_due_date: formState.fees_due_date ? formState.fees_due_date.slice(0, 10) : null
+                    fees_due_date: autoMonthlyDue || null
                 };
 
                 if (isFirstTime && paidNow > 0) {
@@ -560,10 +608,14 @@ const FeesTab = () => {
                 : `${getBackendUrl()}/api/payments`;
             const method = isEdit ? 'PUT' : 'POST';
 
+            const autoPaymentDue = formState.fees_due_date 
+                ? formState.fees_due_date.slice(0, 10) 
+                : (isMonthly ? getNextMonthSameDate(formState.payment_date) : null);
+
             const body = {
                 amount: numAmount,
                 payment_date: formState.payment_date.slice(0, 10),
-                fees_due_date: formState.fees_due_date ? formState.fees_due_date.slice(0, 10) : null,
+                fees_due_date: autoPaymentDue ? autoPaymentDue.slice(0, 10) : null,
                 fee_type: isMonthly ? 'Monthly' : 'Yearly',
                 month_for: isMonthly ? (formState.month_for || null) : null
             };
@@ -1288,7 +1340,14 @@ const FeesTab = () => {
                                                 <div style={{ display: 'inline-flex', gap: '4px', background: 'var(--color-surface)', padding: '3px', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
                                                     <button
                                                         type="button"
-                                                        onClick={() => setFormState(prev => ({ ...prev, fee_type: 'Monthly' }))}
+                                                        onClick={() => setFormState(prev => {
+                                                            const refDate = (Number(prev.paid_now) > 0 && prev.paid_date) ? prev.paid_date : (prev.fees_start_date || getTodayString());
+                                                            return {
+                                                                ...prev,
+                                                                fee_type: 'Monthly',
+                                                                fees_due_date: getNextMonthSameDate(refDate)
+                                                            };
+                                                        })}
                                                         style={{
                                                             padding: '0.35rem 0.85rem',
                                                             borderRadius: '6px',
@@ -1366,7 +1425,19 @@ const FeesTab = () => {
                                                                     required
                                                                     type="date"
                                                                     value={formState.fees_start_date}
-                                                                    onChange={e => setFormState({ ...formState, fees_start_date: e.target.value })}
+                                                                    onChange={e => {
+                                                                        const val = e.target.value;
+                                                                        setFormState(prev => {
+                                                                            const isPaid = Number(prev.paid_now) > 0 && prev.paid_date;
+                                                                            const refDate = isPaid ? prev.paid_date : val;
+                                                                            return {
+                                                                                ...prev,
+                                                                                fees_start_date: val,
+                                                                                fees_due_date: getNextMonthSameDate(refDate),
+                                                                                month_for: prev.month_for || getMonthNameString(val)
+                                                                            };
+                                                                        });
+                                                                    }}
                                                                 />
                                                             </div>
                                                         </div>
@@ -1381,19 +1452,38 @@ const FeesTab = () => {
                                                                         step="0.01"
                                                                         placeholder={formState.monthly_amount ? `e.g. ${formState.monthly_amount}` : 'e.g. 800'}
                                                                         value={formState.paid_now}
-                                                                        onChange={e => setFormState({ ...formState, paid_now: e.target.value })}
+                                                                        onChange={e => {
+                                                                            const val = e.target.value;
+                                                                            setFormState(prev => {
+                                                                                const hasPayment = Number(val) > 0;
+                                                                                const refDate = (hasPayment && prev.paid_date) ? prev.paid_date : (prev.fees_start_date || getTodayString());
+                                                                                return {
+                                                                                    ...prev,
+                                                                                    paid_now: val,
+                                                                                    fees_due_date: getNextMonthSameDate(refDate)
+                                                                                };
+                                                                            });
+                                                                        }}
                                                                     />
                                                                 </div>
 
                                                                 {Number(formState.paid_now) > 0 && (
                                                                     <>
                                                                         <div className={styles.inputGroup}>
-                                                                            <label>Paid Date *</label>
+                                                                            <label>Paid Date (फीस जमा करने की तिथि) *</label>
                                                                             <input
                                                                                 required
                                                                                 type="date"
                                                                                 value={formState.paid_date}
-                                                                                onChange={e => setFormState({ ...formState, paid_date: e.target.value })}
+                                                                                onChange={e => {
+                                                                                    const val = e.target.value;
+                                                                                    setFormState(prev => ({
+                                                                                        ...prev,
+                                                                                        paid_date: val,
+                                                                                        fees_due_date: getNextMonthSameDate(val),
+                                                                                        month_for: getMonthNameString(val)
+                                                                                    }));
+                                                                                }}
                                                                             />
                                                                         </div>
                                                                         <div className={styles.inputGroup}>
@@ -1417,7 +1507,7 @@ const FeesTab = () => {
                                                         )}
 
                                                         <div className={styles.inputGroup}>
-                                                            <label>Next Due Date (अगली फीस देय तिथि)</label>
+                                                            <label>Next Due Date (अगली माह की देय तिथि - ऑटो सेट)</label>
                                                             <input
                                                                 type="date"
                                                                 value={formState.fees_due_date || ''}
@@ -1593,7 +1683,15 @@ const FeesTab = () => {
                                                             required
                                                             type="date"
                                                             value={formState.payment_date}
-                                                            onChange={e => setFormState({ ...formState, payment_date: e.target.value })}
+                                                            onChange={e => {
+                                                                const val = e.target.value;
+                                                                setFormState(prev => ({
+                                                                    ...prev,
+                                                                    payment_date: val,
+                                                                    fees_due_date: isMonthly ? getNextMonthSameDate(val) : prev.fees_due_date,
+                                                                    month_for: isMonthly ? getMonthNameString(val) : prev.month_for
+                                                                }));
+                                                            }}
                                                         />
                                                     </div>
 
@@ -1619,7 +1717,7 @@ const FeesTab = () => {
                                                 {/* Due Date: for monthly or if remaining > 0 */}
                                                 {(isMonthly || remainingAfter > 0) && (
                                                     <div className={styles.inputGroup}>
-                                                        <label>{isMonthly ? 'Next Due Date (अगली माह की देय तिथि)' : 'Baaki fees ki due date *'}</label>
+                                                        <label>{isMonthly ? 'Next Due Date (अगली माह की देय तिथि - ऑटो सेट)' : 'Baaki fees ki due date *'}</label>
                                                         <input
                                                             required={!isMonthly}
                                                             type="date"

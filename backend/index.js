@@ -1388,6 +1388,32 @@ app.get('/api/payments', authenticateToken, requireRole('teacher'), async (req, 
     }
 });
 
+// Helper: Compute exact same day of next month (with month-end clamping) for backend
+function getBackendNextMonthSameDate(dateInput) {
+    try {
+        if (!dateInput) return null;
+        const dateStr = String(dateInput).slice(0, 10);
+        const parts = dateStr.split('-');
+        if (parts.length !== 3) return null;
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+
+        let nextYear = year;
+        let nextMonth = month + 1;
+        if (nextMonth > 11) {
+            nextMonth = 0;
+            nextYear += 1;
+        }
+
+        const daysInNextMonth = new Date(nextYear, nextMonth + 1, 0).getDate();
+        const clampedDay = Math.min(day, daysInNextMonth);
+        return `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(clampedDay).padStart(2, '0')}`;
+    } catch {
+        return null;
+    }
+}
+
 // PUT /api/students/:id/fees -> Set or edit fees (Yearly or Monthly)
 app.put('/api/students/:id/fees', authenticateToken, requireRole('teacher'), async (req, res) => {
     const studentId = req.params.id;
@@ -1437,7 +1463,9 @@ app.put('/api/students/:id/fees', authenticateToken, requireRole('teacher'), asy
                 }
             }
 
-            const finalDueDate = fees_due_date ? String(fees_due_date).slice(0, 10) : null;
+            const finalDueDate = fees_due_date 
+                ? String(fees_due_date).slice(0, 10) 
+                : getBackendNextMonthSameDate(initialDate || fees_start_date);
 
             // Update student
             const { error: updErr } = await supabase
@@ -1623,8 +1651,12 @@ app.post('/api/payments', authenticateToken, requireRole('teacher'), async (req,
 
             if (insErr) throw insErr;
 
-            if (fees_due_date) {
-                await supabase.from('students').update({ fees_due_date: String(fees_due_date).slice(0, 10) }).eq('id', student_id);
+            const targetDueDate = fees_due_date 
+                ? String(fees_due_date).slice(0, 10) 
+                : getBackendNextMonthSameDate(payment_date);
+
+            if (targetDueDate) {
+                await supabase.from('students').update({ fees_due_date: targetDueDate }).eq('id', student_id);
             }
 
             if (newPayment) {
@@ -1753,8 +1785,12 @@ app.put('/api/payments/:id', authenticateToken, requireRole('teacher'), async (r
 
             if (updErr) throw updErr;
 
-            if (fees_due_date) {
-                await supabase.from('students').update({ fees_due_date: String(fees_due_date).slice(0, 10) }).eq('id', studentId);
+            const targetDueDate = fees_due_date 
+                ? String(fees_due_date).slice(0, 10) 
+                : getBackendNextMonthSameDate(payment_date);
+
+            if (targetDueDate) {
+                await supabase.from('students').update({ fees_due_date: targetDueDate }).eq('id', studentId);
             }
 
             if (month_for !== undefined) {
