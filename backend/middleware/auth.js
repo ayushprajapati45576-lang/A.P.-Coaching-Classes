@@ -22,6 +22,19 @@ const authenticateToken = async (req, res, next) => {
                 return res.status(403).json({ error: "Session expired. You logged in from another device." });
             }
 
+            // Inactive student access block
+            if (user.role === 'student') {
+                const { data: studentRecord } = await supabase
+                    .from('students')
+                    .select('enrollment_status')
+                    .eq('id', user.id)
+                    .maybeSingle();
+
+                if (studentRecord && (studentRecord.enrollment_status === 'inactive' || studentRecord.enrollment_status === 'leave')) {
+                    return res.status(403).json({ error: "Aapka account inactive kar diya gaya hai. Kripya admin se sampark karein." });
+                }
+            }
+
             req.user = user;
             next();
         } catch (dbError) {

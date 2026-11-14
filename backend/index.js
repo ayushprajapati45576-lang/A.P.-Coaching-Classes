@@ -97,17 +97,30 @@ app.post('/api/auth/login', async (req, res) => {
         const validPassword = await bcrypt.compare(password, user.password_hash);
         if (!validPassword) return res.status(401).json({ error: "Invalid email or password" });
 
-        if (user.role === 'student' && !user.is_approved) {
-            return res.status(403).json({ error: "Your account is pending teacher approval." });
-        }
-
-        const sessionId = crypto.randomBytes(16).toString('hex');
-        await supabase.from('users').update({ active_session_id: sessionId }).eq('id', user.id);
-
         let className = 'General';
         let fullName = '';
         if (user.role === 'student') {
-            const { data: studentInfo } = await supabase.from('students').select('class_name, full_name').eq('id', user.id).maybeSingle();
+            if (!user.is_approved) {
+                return res.status(403).json({ error: "Your account is pending teacher approval." });
+            }
+
+            // Check if student is inactive / left
+            const statuses = await getStudentEnrollmentStatuses();
+            const { data: studentInfo } = await supabase
+                .from('students')
+                .select('enrollment_status, class_name, full_name')
+                .eq('id', user.id)
+                .maybeSingle();
+
+            const rawStatus = studentInfo?.enrollment_status || statuses[user.id] || 'active';
+            const isInactive = rawStatus === 'inactive' || rawStatus === 'leave';
+
+            if (isInactive) {
+                return res.status(403).json({ 
+                    error: "Aapka account inactive / suspended kar diya gaya hai. Kripya coaching institute / teacher se sampark karein." 
+                });
+            }
+
             if (studentInfo) {
                 if (studentInfo.class_name) className = studentInfo.class_name;
                 if (studentInfo.full_name) fullName = studentInfo.full_name;
@@ -116,6 +129,9 @@ app.post('/api/auth/login', async (req, res) => {
             const emailPrefix = user.email.split('@')[0];
             fullName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
         }
+
+        const sessionId = crypto.randomBytes(16).toString('hex');
+        await supabase.from('users').update({ active_session_id: sessionId }).eq('id', user.id);
 
         const token = jwt.sign(
             { id: user.id, email: user.email, role: user.role, sessionId: sessionId, class_name: className, full_name: fullName },
@@ -365,6 +381,119 @@ async function setStudentBatch(studentId, batch, teacherUserId) {
     return batches;
 }
 
+// --- Student Fee Config Helpers (Monthly vs Yearly) ---
+async function getStudentFeeConfigs() {
+    try {
+        const { data: notice } = await supabase
+            .from('notices')
+            .select('*')
+            .eq('title', '__STUDENT_FEE_CONFIGS__')
+            .maybeSingle();
+        if (notice && notice.content) {
+            try {
+                return JSON.parse(notice.content);
+            } catch (e) {
+                return {};
+            }
+        }
+    } catch (err) {
+        console.error("Error fetching student fee configs:", err);
+    }
+    return {};
+}
+
+async function setStudentFeeConfig(studentId, config, teacherUserId) {
+    const configs = await getStudentFeeConfigs();
+    configs[studentId] = {
+        ...(configs[studentId] || {}),
+        ...config
+    };
+
+    const { data: existing } = await supabase
+        .from('notices')
+        .select('id')
+        .eq('title', '__STUDENT_FEE_CONFIGS__')
+        .maybeSingle();
+    const content = JSON.stringify(configs);
+
+    if (existing) {
+        await supabase.from('notices').update({ content }).eq('id', existing.id);
+    } else {
+        await supabase.from('notices').insert({
+            title: '__STUDENT_FEE_CONFIGS__',
+            content,
+            created_by: teacherUserId || null
+        });
+    }
+
+    try {
+        const updateObj = {};
+        if (config.fee_type) updateObj.fee_type = config.fee_type;
+        if (config.monthly_amount !== undefined) updateObj.monthly_amount = config.monthly_amount;
+        if (Object.keys(updateObj).length > 0) {
+            await supabase.from('students').update(updateObj).eq('id', studentId);
+        }
+    } catch (_) {}
+
+    return configs;
+}
+
+// Payment metadata helpers (fee_type, month_for)
+async function getPaymentMetaMap() {
+    try {
+        const { data: notice } = await supabase
+            .from('notices')
+            .select('*')
+            .eq('title', '__PAYMENTS_META__')
+            .maybeSingle();
+        if (notice && notice.content) {
+            try {
+                return JSON.parse(notice.content);
+            } catch (e) {
+                return {};
+            }
+        }
+    } catch (err) {
+        console.error("Error fetching payment meta:", err);
+    }
+    return {};
+}
+
+async function setPaymentMeta(paymentId, meta, teacherUserId) {
+    if (!paymentId) return;
+    const metaMap = await getPaymentMetaMap();
+    metaMap[paymentId] = {
+        ...(metaMap[paymentId] || {}),
+        ...meta
+    };
+
+    const { data: existing } = await supabase
+        .from('notices')
+        .select('id')
+        .eq('title', '__PAYMENTS_META__')
+        .maybeSingle();
+    const content = JSON.stringify(metaMap);
+
+    if (existing) {
+        await supabase.from('notices').update({ content }).eq('id', existing.id);
+    } else {
+        await supabase.from('notices').insert({
+            title: '__PAYMENTS_META__',
+            content,
+            created_by: teacherUserId || null
+        });
+    }
+
+    try {
+        const updateObj = {};
+        if (meta.fee_type) updateObj.fee_type = meta.fee_type;
+        if (meta.month_for) updateObj.month_for = meta.month_for;
+        if (Object.keys(updateObj).length > 0) {
+            await supabase.from('payments').update(updateObj).eq('id', paymentId);
+        }
+    } catch (_) {}
+}
+
 app.get('/api/students', authenticateToken, requireRole('teacher'), async (req, res) => {
     try {
         // In Supabase, we can use relations
@@ -376,11 +505,18 @@ app.get('/api/students', authenticateToken, requireRole('teacher'), async (req, 
 
         const statuses = await getStudentEnrollmentStatuses();
         const batches = await getStudentBatches();
+        const feeConfigs = await getStudentFeeConfigs();
 
         const formatted = students.map(s => {
             const rawStatus = s.enrollment_status || statuses[s.id] || 'active';
             const status = (rawStatus === 'inactive' || rawStatus === 'leave') ? 'inactive' : 'active';
             const batch = s.batch || batches[s.id] || 'Both';
+            const feeCfg = feeConfigs[s.id] || {};
+            const feeType = s.fee_type || feeCfg.fee_type || 'Yearly';
+            const monthlyAmount = s.monthly_amount !== undefined && s.monthly_amount !== null
+                ? Number(s.monthly_amount)
+                : (feeCfg.monthly_amount !== undefined && feeCfg.monthly_amount !== null ? Number(feeCfg.monthly_amount) : null);
+
             return {
                 id: s.id, 
                 full_name: s.full_name, 
@@ -390,8 +526,10 @@ app.get('/api/students', authenticateToken, requireRole('teacher'), async (req, 
                 class_name: s.class_name, 
                 class: s.class_name, 
                 total_fees: s.total_fees !== undefined && s.total_fees !== null ? Number(s.total_fees) : null, 
-                fees_start_date: s.fees_start_date || null, 
-                fees_due_date: s.fees_due_date || null, 
+                fees_start_date: s.fees_start_date || feeCfg.fees_start_date || null, 
+                fees_due_date: s.fees_due_date || feeCfg.fees_due_date || null, 
+                fee_type: feeType, // 'Yearly' | 'Monthly'
+                monthly_amount: monthlyAmount,
                 is_approved: s.users.is_approved,
                 enrollment_status: status, // 'active' or 'inactive'
                 batch: batch, // 'Morning', 'Evening', 'Both'
@@ -421,6 +559,15 @@ app.put('/api/students/:id/status', authenticateToken, requireRole('teacher'), a
         if (!student) return res.status(404).json({ error: "Student not found" });
 
         await setStudentEnrollmentStatus(req.params.id, cleanStatus, req.user.id);
+
+        if (isInactive) {
+            // Invalidate their active session immediately to kick out any logged-in session
+            try {
+                await supabase.from('users').update({ active_session_id: null }).eq('id', req.params.id);
+            } catch (sessErr) {
+                console.error("Session invalidation error:", sessErr);
+            }
+        }
 
         res.json({
             message: `Student marked as ${cleanStatus === 'inactive' ? 'Inactive' : 'Active'}`,
@@ -1037,23 +1184,80 @@ app.get('/api/student/fees', authenticateToken, async (req, res) => {
             .eq('student_id', req.user.id)
             .order('due_date', { ascending: false });
 
-        if (student && (Number(student.total_fees) > 0 || (studentPayments && studentPayments.length > 0))) {
-            const total = Number(student.total_fees) || 0;
+        const feeConfigs = await getStudentFeeConfigs();
+        const paymentMetaMap = await getPaymentMetaMap();
+        const feeCfg = feeConfigs[req.user.id] || {};
+        const feeType = student?.fee_type || feeCfg.fee_type || 'Yearly';
+        const monthlyAmount = student?.monthly_amount !== undefined && student?.monthly_amount !== null
+            ? Number(student.monthly_amount)
+            : (feeCfg.monthly_amount !== undefined && feeCfg.monthly_amount !== null ? Number(feeCfg.monthly_amount) : null);
+
+        if (student && (Number(student.total_fees) > 0 || monthlyAmount > 0 || (studentPayments && studentPayments.length > 0))) {
             const payments = studentPayments || [];
             const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+            const studentInfo = {
+                ...student,
+                fee_type: feeType,
+                monthly_amount: monthlyAmount
+            };
+
+            if (feeType === 'Monthly') {
+                const records = payments.map(p => {
+                    const meta = paymentMetaMap[p.id] || {};
+                    return {
+                        id: p.id,
+                        student_id: p.student_id,
+                        amount: monthlyAmount || Number(student.total_fees) || Number(p.amount),
+                        paid_amount: Number(p.amount),
+                        due_amount: 0,
+                        due_date: student.fees_due_date,
+                        status: 'paid',
+                        paid_date: p.payment_date,
+                        fee_type: 'Monthly',
+                        month_for: p.month_for || meta.month_for || null,
+                        student_info: studentInfo
+                    };
+                });
+
+                if (records.length === 0) {
+                    records.push({
+                        id: 'due-' + student.id,
+                        student_id: student.id,
+                        amount: monthlyAmount || 0,
+                        paid_amount: 0,
+                        due_amount: monthlyAmount || 0,
+                        due_date: student.fees_due_date,
+                        status: 'pending',
+                        paid_date: null,
+                        fee_type: 'Monthly',
+                        student_info: studentInfo
+                    });
+                }
+
+                return res.json(records);
+            }
+
+            // Yearly logic
+            const total = Number(student.total_fees) || 0;
             const remainingDue = Math.max(0, total - totalPaid);
 
-            const records = payments.map(p => ({
-                id: p.id,
-                student_id: p.student_id,
-                amount: total,
-                paid_amount: Number(p.amount),
-                due_amount: remainingDue,
-                due_date: student.fees_due_date,
-                status: 'paid',
-                paid_date: p.payment_date,
-                student_info: student
-            }));
+            const records = payments.map(p => {
+                const meta = paymentMetaMap[p.id] || {};
+                return {
+                    id: p.id,
+                    student_id: p.student_id,
+                    amount: total,
+                    paid_amount: Number(p.amount),
+                    due_amount: remainingDue,
+                    due_date: student.fees_due_date,
+                    status: 'paid',
+                    paid_date: p.payment_date,
+                    fee_type: 'Yearly',
+                    month_for: p.month_for || meta.month_for || null,
+                    student_info: studentInfo
+                };
+            });
 
             if (records.length === 0 && total > 0) {
                 records.push({
@@ -1065,7 +1269,8 @@ app.get('/api/student/fees', authenticateToken, async (req, res) => {
                     due_date: student.fees_due_date,
                     status: 'pending',
                     paid_date: null,
-                    student_info: student
+                    fee_type: 'Yearly',
+                    student_info: studentInfo
                 });
             }
 
@@ -1094,32 +1299,38 @@ app.get('/api/payments', authenticateToken, requireRole('teacher'), async (req, 
 
         if (error) throw error;
 
-        const formatted = (payments || []).map(p => ({
-            ...p,
-            amount: Number(p.amount)
-        }));
+        const paymentMetaMap = await getPaymentMetaMap();
+
+        const formatted = (payments || []).map(p => {
+            const meta = paymentMetaMap[p.id] || {};
+            return {
+                ...p,
+                amount: Number(p.amount),
+                fee_type: p.fee_type || meta.fee_type || 'Yearly',
+                month_for: p.month_for || meta.month_for || null
+            };
+        });
 
         res.json(formatted);
     } catch (err) {
-        console.error("Error in POST /api/notes:", err);
+        console.error("Error in GET /api/payments:", err);
         res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
-// PUT /api/students/:id/fees -> Set or edit total fees, start date, and due date
+// PUT /api/students/:id/fees -> Set or edit fees (Yearly or Monthly)
 app.put('/api/students/:id/fees', authenticateToken, requireRole('teacher'), async (req, res) => {
     const studentId = req.params.id;
-    const { total_fees, fees_start_date, fees_due_date, initial_payment } = req.body;
+    const { 
+        fee_type = 'Yearly', 
+        monthly_amount, 
+        total_fees, 
+        fees_start_date, 
+        fees_due_date, 
+        initial_payment 
+    } = req.body;
 
     try {
-        const numTotal = Number(total_fees);
-        if (!numTotal || isNaN(numTotal) || numTotal <= 0) {
-            return res.status(400).json({ error: "Total fees must be greater than 0" });
-        }
-        if (!fees_start_date) {
-            return res.status(400).json({ error: "Fees start date is required" });
-        }
-
         // Fetch student
         const { data: student, error: stErr } = await supabase
             .from('students')
@@ -1129,6 +1340,84 @@ app.put('/api/students/:id/fees', authenticateToken, requireRole('teacher'), asy
 
         if (stErr || !student) {
             return res.status(404).json({ error: "Student not found" });
+        }
+
+        if (!fees_start_date) {
+            return res.status(400).json({ error: "Fees start date is required" });
+        }
+
+        // --- Monthly Fee Mode ---
+        if (fee_type === 'Monthly') {
+            const numMonthly = Number(monthly_amount);
+            if (!numMonthly || isNaN(numMonthly) || numMonthly <= 0) {
+                return res.status(400).json({ error: "Monthly fee amount must be greater than 0" });
+            }
+
+            const isFirstTime = !student.total_fees || Number(student.total_fees) === 0;
+            let initialAmount = 0;
+            let initialDate = null;
+            let initialMonthFor = null;
+
+            if (isFirstTime && initial_payment && Number(initial_payment.amount) > 0) {
+                initialAmount = Number(initial_payment.amount);
+                initialDate = initial_payment.payment_date;
+                initialMonthFor = initial_payment.month_for || null;
+                if (!initialDate) {
+                    return res.status(400).json({ error: "Payment date is required for initial payment" });
+                }
+            }
+
+            const finalDueDate = fees_due_date ? String(fees_due_date).slice(0, 10) : null;
+
+            // Update student
+            const { error: updErr } = await supabase
+                .from('students')
+                .update({
+                    total_fees: numMonthly,
+                    fees_start_date: String(fees_start_date).slice(0, 10),
+                    fees_due_date: finalDueDate
+                })
+                .eq('id', studentId);
+
+            if (updErr) throw updErr;
+
+            // Save fee config
+            await setStudentFeeConfig(studentId, {
+                fee_type: 'Monthly',
+                monthly_amount: numMonthly,
+                fees_start_date: String(fees_start_date).slice(0, 10),
+                fees_due_date: finalDueDate
+            }, req.user.id);
+
+            // Record initial payment if provided
+            if (isFirstTime && initialAmount > 0) {
+                const { data: newPay, error: insErr } = await supabase
+                    .from('payments')
+                    .insert({
+                        student_id: studentId,
+                        amount: initialAmount,
+                        payment_date: String(initialDate).slice(0, 10)
+                    })
+                    .select()
+                    .single();
+
+                if (insErr) throw insErr;
+
+                if (newPay) {
+                    await setPaymentMeta(newPay.id, {
+                        fee_type: 'Monthly',
+                        month_for: initialMonthFor
+                    }, req.user.id);
+                }
+            }
+
+            return res.json({ message: "Monthly fees updated successfully" });
+        }
+
+        // --- Yearly Fee Mode ---
+        const numTotal = Number(total_fees);
+        if (!numTotal || isNaN(numTotal) || numTotal <= 0) {
+            return res.status(400).json({ error: "Total course fees must be greater than 0" });
         }
 
         // Fetch existing payments for this student
@@ -1141,7 +1430,6 @@ app.put('/api/students/:id/fees', authenticateToken, requireRole('teacher'), asy
 
         const existingPaid = (existingPayments || []).reduce((sum, p) => sum + Number(p.amount), 0);
 
-        // Check if fees are being set for the first time
         const isFirstTime = !student.total_fees || Number(student.total_fees) === 0;
         let initialAmount = 0;
         let initialDate = null;
@@ -1183,29 +1471,45 @@ app.put('/api/students/:id/fees', authenticateToken, requireRole('teacher'), asy
 
         if (updErr) throw updErr;
 
+        // Save fee config
+        await setStudentFeeConfig(studentId, {
+            fee_type: 'Yearly',
+            total_fees: numTotal,
+            fees_start_date: String(fees_start_date).slice(0, 10),
+            fees_due_date: finalDueDate
+        }, req.user.id);
+
         // Insert initial payment if provided for first-time set
         if (isFirstTime && initialAmount > 0) {
-            const { error: insErr } = await supabase
+            const { data: newPay, error: insErr } = await supabase
                 .from('payments')
                 .insert({
                     student_id: studentId,
                     amount: initialAmount,
                     payment_date: String(initialDate).slice(0, 10)
-                });
+                })
+                .select()
+                .single();
 
             if (insErr) throw insErr;
+
+            if (newPay) {
+                await setPaymentMeta(newPay.id, {
+                    fee_type: 'Yearly'
+                }, req.user.id);
+            }
         }
 
         res.json({ message: "Fees updated successfully" });
     } catch (err) {
-        console.error("Error in POST /api/notes:", err);
+        console.error("Error in PUT /api/students/:id/fees:", err);
         res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
 
 // POST /api/payments -> Add payment
 app.post('/api/payments', authenticateToken, requireRole('teacher'), async (req, res) => {
-    const { student_id, amount, payment_date, fees_due_date } = req.body;
+    const { student_id, amount, payment_date, fees_due_date, fee_type, month_for } = req.body;
 
     try {
         const numAmount = Number(amount);
@@ -1230,6 +1534,40 @@ app.post('/api/payments', authenticateToken, requireRole('teacher'), async (req,
             return res.status(404).json({ error: "Student not found" });
         }
 
+        // Check student fee config
+        const feeConfigs = await getStudentFeeConfigs();
+        const studentFeeCfg = feeConfigs[student_id] || {};
+        const effectiveFeeType = fee_type || student.fee_type || studentFeeCfg.fee_type || 'Yearly';
+
+        // --- Monthly Payment Handling ---
+        if (effectiveFeeType === 'Monthly') {
+            const { data: newPayment, error: insErr } = await supabase
+                .from('payments')
+                .insert({
+                    student_id,
+                    amount: numAmount,
+                    payment_date: String(payment_date).slice(0, 10)
+                })
+                .select()
+                .single();
+
+            if (insErr) throw insErr;
+
+            if (fees_due_date) {
+                await supabase.from('students').update({ fees_due_date: String(fees_due_date).slice(0, 10) }).eq('id', student_id);
+            }
+
+            if (newPayment) {
+                await setPaymentMeta(newPayment.id, {
+                    fee_type: 'Monthly',
+                    month_for: month_for || null
+                }, req.user.id);
+            }
+
+            return res.status(201).json({ message: "Monthly payment recorded successfully", payment: newPayment });
+        }
+
+        // --- Yearly Payment Handling ---
         const totalFees = Number(student.total_fees);
         if (!totalFees || totalFees <= 0) {
             return res.status(400).json({ error: "Total fees not set for this student. Please set fees first." });
@@ -1277,9 +1615,15 @@ app.post('/api/payments', authenticateToken, requireRole('teacher'), async (req,
             await supabase.from('students').update({ fees_due_date: String(fees_due_date).slice(0, 10) }).eq('id', student_id);
         }
 
+        if (newPayment) {
+            await setPaymentMeta(newPayment.id, {
+                fee_type: 'Yearly'
+            }, req.user.id);
+        }
+
         res.status(201).json({ message: "Payment recorded successfully", payment: newPayment });
     } catch (err) {
-        console.error("Error in POST /api/notes:", err);
+        console.error("Error in POST /api/payments:", err);
         res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
@@ -1287,7 +1631,7 @@ app.post('/api/payments', authenticateToken, requireRole('teacher'), async (req,
 // PUT /api/payments/:id -> Edit payment
 app.put('/api/payments/:id', authenticateToken, requireRole('teacher'), async (req, res) => {
     const paymentId = req.params.id;
-    const { amount, payment_date, fees_due_date } = req.body;
+    const { amount, payment_date, fees_due_date, month_for } = req.body;
 
     try {
         const numAmount = Number(amount);
@@ -1322,6 +1666,35 @@ app.put('/api/payments/:id', authenticateToken, requireRole('teacher'), async (r
             return res.status(404).json({ error: "Student not found" });
         }
 
+        const feeConfigs = await getStudentFeeConfigs();
+        const studentFeeCfg = feeConfigs[studentId] || {};
+        const paymentMetaMap = await getPaymentMetaMap();
+        const payMeta = paymentMetaMap[paymentId] || {};
+        const effectiveFeeType = payment.fee_type || payMeta.fee_type || student.fee_type || studentFeeCfg.fee_type || 'Yearly';
+
+        if (effectiveFeeType === 'Monthly') {
+            const { error: updErr } = await supabase
+                .from('payments')
+                .update({
+                    amount: numAmount,
+                    payment_date: String(payment_date).slice(0, 10)
+                })
+                .eq('id', paymentId);
+
+            if (updErr) throw updErr;
+
+            if (fees_due_date) {
+                await supabase.from('students').update({ fees_due_date: String(fees_due_date).slice(0, 10) }).eq('id', studentId);
+            }
+
+            if (month_for !== undefined) {
+                await setPaymentMeta(paymentId, { month_for }, req.user.id);
+            }
+
+            return res.json({ message: "Monthly payment updated successfully" });
+        }
+
+        // Yearly payment check
         const totalFees = Number(student.total_fees) || 0;
 
         // Fetch payments for student
@@ -1368,9 +1741,13 @@ app.put('/api/payments/:id', authenticateToken, requireRole('teacher'), async (r
             await supabase.from('students').update({ fees_due_date: String(fees_due_date).slice(0, 10) }).eq('id', studentId);
         }
 
+        if (month_for !== undefined) {
+            await setPaymentMeta(paymentId, { month_for }, req.user.id);
+        }
+
         res.json({ message: "Payment updated successfully" });
     } catch (err) {
-        console.error("Error in POST /api/notes:", err);
+        console.error("Error in PUT /api/payments/:id:", err);
         res.status(500).json({ error: err.message || "Internal server error" });
     }
 });

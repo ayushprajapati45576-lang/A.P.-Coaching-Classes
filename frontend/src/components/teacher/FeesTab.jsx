@@ -36,6 +36,7 @@ const getBackendUrl = () => {
 
 const FeesTab = () => {
     const [selectedClass, setSelectedClass] = useState('10'); // Default Class 10
+    const [statusFilter, setStatusFilter] = useState('active'); // 'active', 'inactive', 'all'
     const [searchQuery, setSearchQuery] = useState('');
     const [students, setStudents] = useState([]);
     const [payments, setPayments] = useState([]);
@@ -122,6 +123,37 @@ const FeesTab = () => {
         return datePart;
     };
 
+    const MONTH_NAMES = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    const getMonthNameString = (dateObj) => {
+        const d = dateObj ? new Date(dateObj) : new Date();
+        if (isNaN(d.getTime())) return '';
+        return `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+    };
+
+    const getRecentMonthOptions = () => {
+        const list = [];
+        const now = new Date();
+        for (let i = -3; i <= 6; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+            list.push(`${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`);
+        }
+        return list;
+    };
+
+    // Helper: Normalize class name for strict matching (e.g. 'Class 10' -> '10', '10' -> '10', 'General' -> 'General')
+    const normalizeClass = (cls) => {
+        if (!cls) return 'General';
+        const s = String(cls).trim().toLowerCase();
+        const match = s.match(/\b(6|7|8|9|10|11|12)\b/);
+        if (match) return match[1];
+        if (s.includes('gen') || s === 'other') return 'General';
+        return String(cls).trim();
+    };
+
     // Group payments by student_id
     const studentPaymentsMap = useMemo(() => {
         const map = {};
@@ -133,41 +165,63 @@ const FeesTab = () => {
         return map;
     }, [payments]);
 
-    // Filter students belonging to the selected class and search query
+    // All students strictly belonging to the selected class (before status & search filter)
+    const classStudents = useMemo(() => {
+        return students.filter(s => {
+            if (selectedClass === 'All') return true;
+            return normalizeClass(s.class_name || s.class) === normalizeClass(selectedClass);
+        });
+    }, [students, selectedClass]);
+
+    const classActiveCount = useMemo(() => {
+        return classStudents.filter(s => s.enrollment_status !== 'inactive' && s.enrollment_status !== 'leave').length;
+    }, [classStudents]);
+
+    const classInactiveCount = useMemo(() => {
+        return classStudents.filter(s => s.enrollment_status === 'inactive' || s.enrollment_status === 'leave').length;
+    }, [classStudents]);
+
+    const classTotalCount = classStudents.length;
+
+    // Filter students belonging to the selected class, status filter, and search query
     const filteredStudents = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
-        return students
+        return classStudents
             .filter(s => {
-                const sClass = String(s.class_name || s.class || '').trim();
-                const matchesClass = selectedClass === 'All' || sClass === String(selectedClass);
-                if (!q) return matchesClass;
+                const isInactive = s.enrollment_status === 'inactive' || s.enrollment_status === 'leave';
+                if (statusFilter === 'active' && isInactive) return false;
+                if (statusFilter === 'inactive' && !isInactive) return false;
+
+                if (!q) return true;
 
                 const name = (s.full_name || '').toLowerCase();
                 const father = (s.father_name || '').toLowerCase();
                 const phone = (s.phone || '').toLowerCase();
                 const roll = (s.roll_no || s.roll_number || '').toString().toLowerCase();
                 const email = (s.users?.email || '').toLowerCase();
-                const className = sClass.toLowerCase();
+                const sClass = String(s.class_name || s.class || '').toLowerCase();
 
-                const matchesSearch = name.includes(q) || 
-                                      father.includes(q) || 
-                                      phone.includes(q) || 
-                                      roll.includes(q) || 
-                                      email.includes(q) ||
-                                      className.includes(q);
-
-                return matchesClass && matchesSearch;
+                return name.includes(q) || 
+                       father.includes(q) || 
+                       phone.includes(q) || 
+                       roll.includes(q) || 
+                       email.includes(q) ||
+                       sClass.includes(q);
             })
             .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
-    }, [students, selectedClass, searchQuery]);
+    }, [classStudents, statusFilter, searchQuery]);
 
     // Count matches in other classes when a search query is active
     const otherClassMatchesCount = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
         if (!q || selectedClass === 'All') return 0;
         return students.filter(s => {
-            const sClass = String(s.class_name || s.class || '').trim();
-            if (sClass === String(selectedClass)) return false;
+            const matchesSelectedClass = normalizeClass(s.class_name || s.class) === normalizeClass(selectedClass);
+            if (matchesSelectedClass) return false;
+
+            const isInactive = s.enrollment_status === 'inactive' || s.enrollment_status === 'leave';
+            if (statusFilter === 'active' && isInactive) return false;
+            if (statusFilter === 'inactive' && !isInactive) return false;
 
             const name = (s.full_name || '').toLowerCase();
             const father = (s.father_name || '').toLowerCase();
@@ -177,11 +231,16 @@ const FeesTab = () => {
 
             return name.includes(q) || father.includes(q) || phone.includes(q) || roll.includes(q) || email.includes(q);
         }).length;
-    }, [students, selectedClass, searchQuery]);
+    }, [students, selectedClass, statusFilter, searchQuery]);
 
     // Total remaining for the displayed filtered students
+    // Inactive students' fees are not counted unless explicitly on the 'inactive' filter
     const totalRemaining = useMemo(() => {
         return filteredStudents.reduce((acc, s) => {
+            const isInactive = s.enrollment_status === 'inactive' || s.enrollment_status === 'leave';
+            // Do not count inactive student's fees when on 'all' filter
+            if (statusFilter === 'all' && isInactive) return acc;
+
             const total = Number(s.total_fees) || 0;
             if (total <= 0) return acc;
             const sPayments = studentPaymentsMap[s.id] || [];
@@ -189,7 +248,7 @@ const FeesTab = () => {
             const remaining = Math.max(0, total - paid);
             return acc + remaining;
         }, 0);
-    }, [filteredStudents, studentPaymentsMap]);
+    }, [filteredStudents, studentPaymentsMap, statusFilter]);
 
     // Toggle view records
     const toggleRecords = (studentId) => {
@@ -206,13 +265,17 @@ const FeesTab = () => {
     // Open "Set fees" or "Edit total" form
     const handleOpenFeesForm = (student) => {
         const isFirstTime = !student.total_fees || Number(student.total_fees) <= 0;
+        const currentFeeType = student.fee_type === 'Monthly' ? 'Monthly' : 'Yearly';
         setFormError('');
         setFormState({
+            fee_type: currentFeeType,
             total_fees: student.total_fees ? String(student.total_fees) : '',
+            monthly_amount: student.monthly_amount ? String(student.monthly_amount) : (currentFeeType === 'Monthly' && student.total_fees ? String(student.total_fees) : ''),
             fees_start_date: student.fees_start_date ? String(student.fees_start_date).slice(0, 10) : getTodayString(),
             fees_due_date: student.fees_due_date ? String(student.fees_due_date).slice(0, 10) : '',
             paid_now: '',
-            paid_date: getTodayString()
+            paid_date: getTodayString(),
+            month_for: getMonthNameString(new Date())
         });
         setActiveForm({
             type: isFirstTime ? 'set_fees' : 'edit_fees',
@@ -222,11 +285,17 @@ const FeesTab = () => {
 
     // Open "+ Add payment" form
     const handleOpenAddPayment = (student) => {
+        const isMonthly = student.fee_type === 'Monthly';
+        const defaultAmount = isMonthly && (student.monthly_amount || student.total_fees) 
+            ? String(student.monthly_amount || student.total_fees) 
+            : '';
         setFormError('');
         setFormState({
-            amount: '',
+            fee_type: isMonthly ? 'Monthly' : 'Yearly',
+            amount: defaultAmount,
             payment_date: getTodayString(),
-            fees_due_date: student.fees_due_date ? String(student.fees_due_date).slice(0, 10) : ''
+            fees_due_date: student.fees_due_date ? String(student.fees_due_date).slice(0, 10) : '',
+            month_for: getMonthNameString(new Date())
         });
         setActiveForm({
             type: 'add_payment',
@@ -236,11 +305,14 @@ const FeesTab = () => {
 
     // Open "Edit payment" form
     const handleOpenEditPayment = (student, payment) => {
+        const isMonthly = student.fee_type === 'Monthly' || payment.fee_type === 'Monthly';
         setFormError('');
         setFormState({
+            fee_type: isMonthly ? 'Monthly' : 'Yearly',
             amount: String(payment.amount),
             payment_date: payment.payment_date ? String(payment.payment_date).slice(0, 10) : getTodayString(),
-            fees_due_date: student.fees_due_date ? String(student.fees_due_date).slice(0, 10) : ''
+            fees_due_date: student.fees_due_date ? String(student.fees_due_date).slice(0, 10) : '',
+            month_for: payment.month_for || getMonthNameString(new Date(payment.payment_date))
         });
         setActiveForm({
             type: 'edit_payment',
@@ -257,11 +329,12 @@ const FeesTab = () => {
 
     // Print receipt for single payment
     const handlePrintPaymentReceipt = (student, payment) => {
+        const isMonthly = student.fee_type === 'Monthly' || payment.fee_type === 'Monthly';
         const studentPayments = (studentPaymentsMap[student.id] || [])
             .sort((a, b) => new Date(a.payment_date) - new Date(b.payment_date));
         const totalPaid = studentPayments.reduce((sum, p) => sum + Number(p.amount), 0);
         const totalFees = Number(student.total_fees) || 0;
-        const remainingFees = Math.max(0, totalFees - totalPaid);
+        const remainingFees = isMonthly ? 0 : Math.max(0, totalFees - totalPaid);
 
         setSelectedReceipt({
             receiptNo: `APC-${payment.id ? String(payment.id).slice(0, 8).toUpperCase() : Math.floor(100000 + Math.random() * 900000)}`,
@@ -272,19 +345,23 @@ const FeesTab = () => {
             phone: student.phone,
             email: student.users?.email,
             currentPaid: Number(payment.amount),
-            totalFees,
+            totalFees: isMonthly ? (student.monthly_amount || totalFees) : totalFees,
             totalPaid,
             remainingFees,
             dueDate: student.fees_due_date,
-            paymentMode: 'Cash / Online UPI'
+            paymentMode: 'Cash / Online UPI',
+            fee_type: isMonthly ? 'Monthly' : 'Yearly',
+            month_for: payment.month_for || null,
+            monthly_amount: student.monthly_amount || totalFees
         });
     };
 
     // Print consolidated fee statement receipt
     const handlePrintConsolidatedReceipt = (student, studentPayments) => {
+        const isMonthly = student.fee_type === 'Monthly';
         const totalPaid = (studentPayments || []).reduce((sum, p) => sum + Number(p.amount), 0);
         const totalFees = Number(student.total_fees) || 0;
-        const remainingFees = Math.max(0, totalFees - totalPaid);
+        const remainingFees = isMonthly ? 0 : Math.max(0, totalFees - totalPaid);
         const latestDate = studentPayments && studentPayments.length > 0 ? studentPayments[0].payment_date : getTodayString();
 
         setSelectedReceipt({
@@ -296,12 +373,14 @@ const FeesTab = () => {
             phone: student.phone,
             email: student.users?.email,
             currentPaid: totalPaid,
-            totalFees,
+            totalFees: isMonthly ? (student.monthly_amount || totalFees) : totalFees,
             totalPaid,
             remainingFees,
             dueDate: student.fees_due_date,
             paymentMode: 'Consolidated Fee Record',
             isStatement: true,
+            fee_type: isMonthly ? 'Monthly' : 'Yearly',
+            monthly_amount: student.monthly_amount || totalFees,
             paymentsList: studentPayments || []
         });
     };
@@ -316,14 +395,72 @@ const FeesTab = () => {
         setFormError('');
 
         const isFirstTime = activeForm.type === 'set_fees';
-        const numTotal = Number(formState.total_fees);
+        const feeType = formState.fee_type || 'Yearly';
 
-        if (!numTotal || numTotal <= 0) {
-            setFormError('Total fees must be greater than 0');
-            return;
-        }
         if (!formState.fees_start_date) {
             setFormError('Fees start date is required');
+            return;
+        }
+
+        // --- Monthly Fee Submission ---
+        if (feeType === 'Monthly') {
+            const numMonthly = Number(formState.monthly_amount);
+            if (!numMonthly || numMonthly <= 0) {
+                setFormError('Monthly fee amount must be greater than 0');
+                return;
+            }
+
+            const paidNow = isFirstTime && Number(formState.paid_now) > 0 ? Number(formState.paid_now) : 0;
+            if (isFirstTime && paidNow > 0 && !formState.paid_date) {
+                setFormError('Paid date is required when initial payment is entered');
+                return;
+            }
+
+            setFormLoading(true);
+            try {
+                const body = {
+                    fee_type: 'Monthly',
+                    monthly_amount: numMonthly,
+                    fees_start_date: formState.fees_start_date.slice(0, 10),
+                    fees_due_date: formState.fees_due_date ? formState.fees_due_date.slice(0, 10) : null
+                };
+
+                if (isFirstTime && paidNow > 0) {
+                    body.initial_payment = {
+                        amount: paidNow,
+                        payment_date: formState.paid_date.slice(0, 10),
+                        month_for: formState.month_for || null
+                    };
+                }
+
+                const { ok, status, data, error } = await safeFetchJson(`${getBackendUrl()}/api/students/${student.id}/fees`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                if (ok) {
+                    await Promise.all([fetchStudents(), fetchPayments()]);
+                    setActiveForm(null);
+                    setExpandedStudentIds(prev => ({ ...prev, [student.id]: true }));
+                } else {
+                    setFormError(data?.error || error || 'Failed to update fees');
+                }
+            } catch (err) {
+                setFormError(err.message || 'Network error');
+            } finally {
+                setFormLoading(false);
+            }
+            return;
+        }
+
+        // --- Yearly Fee Submission ---
+        const numTotal = Number(formState.total_fees);
+        if (!numTotal || numTotal <= 0) {
+            setFormError('Total fees must be greater than 0');
             return;
         }
 
@@ -352,6 +489,7 @@ const FeesTab = () => {
         setFormLoading(true);
         try {
             const body = {
+                fee_type: 'Yearly',
                 total_fees: numTotal,
                 fees_start_date: formState.fees_start_date.slice(0, 10),
                 fees_due_date: remaining > 0 ? formState.fees_due_date.slice(0, 10) : null
@@ -392,12 +530,14 @@ const FeesTab = () => {
         e.preventDefault();
         setFormError('');
 
+        const isMonthly = student.fee_type === 'Monthly';
         const numAmount = Number(formState.amount);
         if (!numAmount || numAmount <= 0) {
             setFormError('Amount must be greater than 0');
             return;
         }
-        if (numAmount > allowedMax) {
+
+        if (!isMonthly && numAmount > allowedMax) {
             setFormError(`Amount cannot be more than remaining (${formatCurrency(allowedMax)})`);
             return;
         }
@@ -406,8 +546,8 @@ const FeesTab = () => {
             return;
         }
 
-        const remainingAfterPayment = allowedMax - numAmount;
-        if (remainingAfterPayment > 0 && !formState.fees_due_date && !student.fees_due_date) {
+        const remainingAfterPayment = isMonthly ? 0 : (allowedMax - numAmount);
+        if (!isMonthly && remainingAfterPayment > 0 && !formState.fees_due_date && !student.fees_due_date) {
             setFormError('Due date is required for remaining fees');
             return;
         }
@@ -423,7 +563,9 @@ const FeesTab = () => {
             const body = {
                 amount: numAmount,
                 payment_date: formState.payment_date.slice(0, 10),
-                fees_due_date: remainingAfterPayment > 0 && formState.fees_due_date ? formState.fees_due_date.slice(0, 10) : null
+                fees_due_date: formState.fees_due_date ? formState.fees_due_date.slice(0, 10) : null,
+                fee_type: isMonthly ? 'Monthly' : 'Yearly',
+                month_for: isMonthly ? (formState.month_for || null) : null
             };
 
             if (!isEdit) {
@@ -473,7 +615,7 @@ const FeesTab = () => {
         }
     };
 
-    const classList = ['All', '6', '7', '8', '9', '10', '11', '12'];
+    const classList = ['All', '6', '7', '8', '9', '10', '11', '12', 'General'];
     const today = getTodayString();
 
     return (
@@ -569,13 +711,81 @@ const FeesTab = () => {
                                     cursor: 'pointer',
                                     whiteSpace: 'nowrap',
                                     transition: 'all 0.2s ease',
-                                    boxShadow: isSelected ? '0 2px 8px rgba(59, 130, 246, 0.3)' : 'none'
+                                    boxShadow: isSelected ? '0 2px 8px rgba(224, 138, 0, 0.25)' : 'none'
                                 }}
                             >
-                                {cls === 'All' ? 'All Classes' : `Class ${cls}`}
+                                {cls === 'All' ? 'All Classes' : cls === 'General' ? 'General' : `Class ${cls}`}
                             </button>
                         );
                     })}
+                </div>
+
+                {/* Status Filter Segment (Active / Inactive / All) */}
+                <div style={{
+                    display: 'flex',
+                    gap: '0.5rem',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    background: 'var(--color-surface-hover)',
+                    padding: '0.35rem 0.6rem',
+                    borderRadius: '10px',
+                    border: '1px solid var(--color-border)',
+                    alignSelf: 'flex-start'
+                }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: '600', color: 'var(--color-text-muted)', marginRight: '0.25rem' }}>
+                        Status:
+                    </span>
+                    <button
+                        onClick={() => setStatusFilter('active')}
+                        type="button"
+                        style={{
+                            background: statusFilter === 'active' ? '#10b981' : 'transparent',
+                            color: statusFilter === 'active' ? '#ffffff' : '#10b981',
+                            border: statusFilter === 'active' ? 'none' : '1px solid rgba(16, 185, 129, 0.3)',
+                            padding: '0.3rem 0.8rem',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontWeight: '600',
+                            fontSize: '0.82rem',
+                            transition: 'all 0.15s ease'
+                        }}
+                    >
+                        Active ({classActiveCount})
+                    </button>
+                    <button
+                        onClick={() => setStatusFilter('inactive')}
+                        type="button"
+                        style={{
+                            background: statusFilter === 'inactive' ? '#ef4444' : 'transparent',
+                            color: statusFilter === 'inactive' ? '#ffffff' : '#ef4444',
+                            border: statusFilter === 'inactive' ? 'none' : '1px solid rgba(239, 68, 68, 0.3)',
+                            padding: '0.3rem 0.8rem',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontWeight: '600',
+                            fontSize: '0.82rem',
+                            transition: 'all 0.15s ease'
+                        }}
+                    >
+                        Inactive ({classInactiveCount})
+                    </button>
+                    <button
+                        onClick={() => setStatusFilter('all')}
+                        type="button"
+                        style={{
+                            background: statusFilter === 'all' ? 'var(--color-primary)' : 'transparent',
+                            color: statusFilter === 'all' ? '#ffffff' : 'var(--color-text-main)',
+                            border: statusFilter === 'all' ? 'none' : '1px solid var(--color-border)',
+                            padding: '0.3rem 0.8rem',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontWeight: '600',
+                            fontSize: '0.82rem',
+                            transition: 'all 0.15s ease'
+                        }}
+                    >
+                        All ({classTotalCount})
+                    </button>
                 </div>
 
                 {/* Other Classes Match Hint */}
@@ -617,7 +827,7 @@ const FeesTab = () => {
 
                 {/* Summary Line under class buttons */}
                 <div style={{ color: 'var(--color-text-muted)', fontSize: '0.92rem', fontWeight: '500' }}>
-                    {selectedClass === 'All' ? 'All Classes' : `Class ${selectedClass}`} · {filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''} {searchQuery ? `matching "${searchQuery}"` : ''} · Total remaining: {formatCurrency(totalRemaining)}
+                    {selectedClass === 'All' ? 'All Classes' : selectedClass === 'General' ? 'General' : `Class ${selectedClass}`} · {filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''} {statusFilter === 'active' ? '(Active)' : statusFilter === 'inactive' ? '(Inactive)' : ''} {searchQuery ? `matching "${searchQuery}"` : ''} · Total remaining: {formatCurrency(totalRemaining)}
                 </div>
             </div>
 
@@ -630,8 +840,8 @@ const FeesTab = () => {
                 <div className="glass-panel" style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--color-text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <div>
                         {searchQuery 
-                            ? `No students found matching "${searchQuery}" in ${selectedClass === 'All' ? 'any class' : `Class ${selectedClass}`}.`
-                            : `No students in ${selectedClass === 'All' ? 'the institute' : `Class ${selectedClass}`}`
+                            ? `No students found matching "${searchQuery}" in ${selectedClass === 'All' ? 'any class' : selectedClass === 'General' ? 'General' : `Class ${selectedClass}`}.`
+                            : `No ${statusFilter !== 'all' ? statusFilter : ''} students in ${selectedClass === 'All' ? 'the institute' : selectedClass === 'General' ? 'General' : `Class ${selectedClass}`}`
                         }
                     </div>
                     {searchQuery && (
@@ -729,6 +939,19 @@ const FeesTab = () => {
                                                         Inactive
                                                     </span>
                                                 )}
+                                                {hasFeesSet && (
+                                                    <span style={{
+                                                        fontSize: '0.72rem',
+                                                        padding: '2px 8px',
+                                                        borderRadius: '6px',
+                                                        background: student.fee_type === 'Monthly' ? 'rgba(37, 99, 235, 0.12)' : 'rgba(224, 138, 0, 0.12)',
+                                                        border: student.fee_type === 'Monthly' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid rgba(224, 138, 0, 0.3)',
+                                                        color: student.fee_type === 'Monthly' ? '#2563eb' : 'var(--color-primary, #E08A00)',
+                                                        fontWeight: '700'
+                                                    }}>
+                                                        {student.fee_type === 'Monthly' ? '📅 Monthly' : '🎓 Yearly'}
+                                                    </span>
+                                                )}
                                                 {(selectedClass === 'All' || searchQuery) && (
                                                     <span style={{
                                                         fontSize: '0.72rem',
@@ -800,90 +1023,163 @@ const FeesTab = () => {
                                 ) : (
                                     /* C) STATE 2: Fees Set */
                                     <>
-                                        {/* Three Columns Grid */}
-                                        <div style={{
-                                            display: 'grid',
-                                            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                                            gap: '1rem',
-                                            padding: '0.75rem 0',
-                                            borderTop: '1px solid var(--color-border)',
-                                            borderBottom: '1px solid var(--color-border)'
-                                        }}>
-                                            {/* Column 1: Total Fees */}
-                                            <div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
-                                                    Total Fees
-                                                </div>
-                                                <div style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--color-text-main)' }}>
-                                                    {formatCurrency(totalFees)}
-                                                </div>
-                                                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                                                    Shuru: {student.fees_start_date ? formatDate(student.fees_start_date) : '-'}
-                                                </div>
-                                            </div>
-
-                                            {/* Column 2: Paid Fees */}
-                                            <div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
-                                                    Paid Fees
-                                                </div>
-                                                <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#10b981' }}>
-                                                    {formatCurrency(paidFees)}
-                                                </div>
-                                                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                                                    Last paid: {latestPaymentDate ? formatDate(latestPaymentDate) : 'Abhi tak nahi'}
-                                                </div>
-                                            </div>
-
-                                            {/* Column 3: Remaining Fees */}
-                                            <div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
-                                                    Remaining Fees
-                                                </div>
-                                                <div style={{ fontSize: '1.25rem', fontWeight: '700', color: remainingFees > 0 ? '#ef4444' : 'var(--color-text-main)' }}>
-                                                    {formatCurrency(remainingFees)}
-                                                </div>
-                                                <div style={{ fontSize: '0.8rem', marginTop: '2px' }}>
-                                                    {remainingFees === 0 ? (
-                                                        <span style={{ color: '#10b981', fontWeight: '600' }}>Sab clear</span>
-                                                    ) : isOverdue ? (
-                                                        <span style={{ color: '#ef4444', fontWeight: '600' }}>
-                                                            Due thi: {formatDate(student.fees_due_date)}
-                                                        </span>
-                                                    ) : student.fees_due_date ? (
-                                                        <span style={{ color: 'var(--color-text-muted)' }}>
-                                                            Next due: {formatDate(student.fees_due_date)}
-                                                        </span>
-                                                    ) : (
-                                                        <span style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-                                                            Due date not set
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Thin Progress Bar */}
-                                        <div>
-                                            <div style={{
-                                                width: '100%',
-                                                height: '6px',
-                                                borderRadius: '3px',
-                                                background: 'var(--color-border)',
-                                                overflow: 'hidden'
-                                            }}>
+                                        {student.fee_type === 'Monthly' ? (
+                                            /* Monthly Fee View */
+                                            <>
                                                 <div style={{
-                                                    width: `${pctPaid}%`,
-                                                    height: '100%',
-                                                    borderRadius: '3px',
-                                                    background: pctPaid === 100 ? '#10b981' : 'var(--color-primary)',
-                                                    transition: 'width 0.3s ease'
-                                                }} />
-                                            </div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '4px', textAlign: 'right' }}>
-                                                {pctPaid}% paid
-                                            </div>
-                                        </div>
+                                                    display: 'grid',
+                                                    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                                                    gap: '1rem',
+                                                    padding: '0.75rem 0',
+                                                    borderTop: '1px solid var(--color-border)',
+                                                    borderBottom: '1px solid var(--color-border)'
+                                                }}>
+                                                    {/* Column 1: Monthly Fee Rate */}
+                                                    <div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                                                            Monthly Rate (मासिक दर)
+                                                        </div>
+                                                        <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#2563eb' }}>
+                                                            {formatCurrency(student.monthly_amount || student.total_fees)} <span style={{ fontSize: '0.8rem', fontWeight: '500' }}>/ mo</span>
+                                                        </div>
+                                                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                                                            Shuru: {student.fees_start_date ? formatDate(student.fees_start_date) : '-'}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Column 2: Total Received */}
+                                                    <div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                                                            Total Received (कुल जमा)
+                                                        </div>
+                                                        <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#10b981' }}>
+                                                            {formatCurrency(paidFees)}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                                                            Last paid: {latestPaymentDate ? formatDate(latestPaymentDate) : 'Abhi tak nahi'}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Column 3: Next Due Date */}
+                                                    <div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                                                            Next Due Date (अगली तारीख)
+                                                        </div>
+                                                        <div style={{ fontSize: '1.25rem', fontWeight: '700', color: isOverdue ? '#ef4444' : 'var(--color-text-main)' }}>
+                                                            {student.fees_due_date ? formatDate(student.fees_due_date) : 'Schedule nahi hai'}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.8rem', marginTop: '2px' }}>
+                                                            {isOverdue ? (
+                                                                <span style={{ color: '#ef4444', fontWeight: '600' }}>
+                                                                    ⚠️ Due thi: {formatDate(student.fees_due_date)}
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ color: 'var(--color-text-muted)' }}>
+                                                                    {studentPayments.length} month payment{studentPayments.length !== 1 ? 's' : ''} recorded
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.2rem 0' }}>
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#2563eb', fontWeight: '600' }}>
+                                                        📅 Monthly Fee Plan (मासिक फीस रिकॉर्ड)
+                                                    </span>
+                                                    <span style={{ color: '#10b981', fontWeight: '600' }}>
+                                                        {studentPayments.length} Payment{studentPayments.length !== 1 ? 's' : ''} Done
+                                                    </span>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            /* Yearly Fee View */
+                                            <>
+                                                {/* Three Columns Grid */}
+                                                <div style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                                                    gap: '1rem',
+                                                    padding: '0.75rem 0',
+                                                    borderTop: '1px solid var(--color-border)',
+                                                    borderBottom: '1px solid var(--color-border)'
+                                                }}>
+                                                    {/* Column 1: Total Fees */}
+                                                    <div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                                                            Total Fees
+                                                        </div>
+                                                        <div style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--color-text-main)' }}>
+                                                            {formatCurrency(totalFees)}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                                                            Shuru: {student.fees_start_date ? formatDate(student.fees_start_date) : '-'}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Column 2: Paid Fees */}
+                                                    <div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                                                            Paid Fees
+                                                        </div>
+                                                        <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#10b981' }}>
+                                                            {formatCurrency(paidFees)}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                                                            Last paid: {latestPaymentDate ? formatDate(latestPaymentDate) : 'Abhi tak nahi'}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Column 3: Remaining Fees */}
+                                                    <div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                                                            Remaining Fees
+                                                        </div>
+                                                        <div style={{ fontSize: '1.25rem', fontWeight: '700', color: remainingFees > 0 ? '#ef4444' : 'var(--color-text-main)' }}>
+                                                            {formatCurrency(remainingFees)}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.8rem', marginTop: '2px' }}>
+                                                            {remainingFees === 0 ? (
+                                                                <span style={{ color: '#10b981', fontWeight: '600' }}>Sab clear</span>
+                                                            ) : isOverdue ? (
+                                                                <span style={{ color: '#ef4444', fontWeight: '600' }}>
+                                                                    Due thi: {formatDate(student.fees_due_date)}
+                                                                </span>
+                                                            ) : student.fees_due_date ? (
+                                                                <span style={{ color: 'var(--color-text-muted)' }}>
+                                                                    Next due: {formatDate(student.fees_due_date)}
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                                                                    Due date not set
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Thin Progress Bar */}
+                                                <div>
+                                                    <div style={{
+                                                        width: '100%',
+                                                        height: '6px',
+                                                        borderRadius: '3px',
+                                                        background: 'var(--color-border)',
+                                                        overflow: 'hidden'
+                                                    }}>
+                                                        <div style={{
+                                                            width: `${pctPaid}%`,
+                                                            height: '100%',
+                                                            borderRadius: '3px',
+                                                            background: pctPaid === 100 ? '#10b981' : 'var(--color-primary)',
+                                                            transition: 'width 0.3s ease'
+                                                        }} />
+                                                    </div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '4px', textAlign: 'right' }}>
+                                                        {pctPaid}% paid
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
 
                                         {/* Bottom Action Row */}
                                         {!isFormOpen && (
@@ -941,23 +1237,23 @@ const FeesTab = () => {
                                                             cursor: 'pointer'
                                                         }}
                                                     >
-                                                        Edit total
+                                                        {student.fee_type === 'Monthly' ? 'Edit Fee Rate' : 'Edit total'}
                                                     </button>
-                                                    {remainingFees > 0 && (
+                                                    {(student.fee_type === 'Monthly' || remainingFees > 0) && (
                                                         <button
                                                             onClick={() => handleOpenAddPayment(student)}
                                                             style={{
-                                                                background: 'rgba(59, 130, 246, 0.15)',
-                                                                border: '1px solid rgba(59, 130, 246, 0.3)',
-                                                                color: 'var(--color-primary)',
+                                                                background: student.fee_type === 'Monthly' ? 'rgba(37, 99, 235, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                                                                border: student.fee_type === 'Monthly' ? '1px solid rgba(37, 99, 235, 0.35)' : '1px solid rgba(59, 130, 246, 0.3)',
+                                                                color: student.fee_type === 'Monthly' ? '#2563eb' : 'var(--color-primary)',
                                                                 padding: '0.35rem 0.85rem',
                                                                 borderRadius: '6px',
                                                                 fontSize: '0.85rem',
-                                                                fontWeight: '500',
+                                                                fontWeight: '600',
                                                                 cursor: 'pointer'
                                                             }}
                                                         >
-                                                            + Add payment
+                                                            {student.fee_type === 'Monthly' ? '+ Add monthly payment' : '+ Add payment'}
                                                         </button>
                                                     )}
                                                 </div>
@@ -969,9 +1265,11 @@ const FeesTab = () => {
                                 {/* D) INLINE FORM: "Set fees" / "Edit total" */}
                                 {isFormOpen && (activeForm.type === 'set_fees' || activeForm.type === 'edit_fees') && (() => {
                                     const isFirstTime = activeForm.type === 'set_fees';
+                                    const isMonthly = formState.fee_type === 'Monthly';
                                     const liveTotal = Number(formState.total_fees) || 0;
+                                    const liveMonthly = Number(formState.monthly_amount) || 0;
                                     const livePaid = isFirstTime ? (Number(formState.paid_now) || 0) : paidFees;
-                                    const liveRemaining = Math.max(0, liveTotal - livePaid);
+                                    const liveRemaining = isMonthly ? 0 : Math.max(0, liveTotal - livePaid);
 
                                     return (
                                         <div style={{
@@ -981,9 +1279,51 @@ const FeesTab = () => {
                                             background: 'var(--color-surface-hover)',
                                             border: '1px solid var(--color-border)'
                                         }}>
-                                            <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--color-text-main)' }}>
-                                                {isFirstTime ? 'Set Student Fees' : 'Edit Total Fees & Due Date'}
-                                            </h4>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                                <h4 style={{ margin: 0, color: 'var(--color-text-main)' }}>
+                                                    {isFirstTime ? 'Set Student Fees' : 'Edit Fees & Due Date'}
+                                                </h4>
+
+                                                {/* Mode Toggle: Monthly vs Yearly */}
+                                                <div style={{ display: 'inline-flex', gap: '4px', background: 'var(--color-surface)', padding: '3px', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormState(prev => ({ ...prev, fee_type: 'Monthly' }))}
+                                                        style={{
+                                                            padding: '0.35rem 0.85rem',
+                                                            borderRadius: '6px',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.8rem',
+                                                            fontWeight: '700',
+                                                            background: isMonthly ? '#2563eb' : 'transparent',
+                                                            color: isMonthly ? '#ffffff' : 'var(--color-text-main)',
+                                                            boxShadow: isMonthly ? '0 2px 6px rgba(37, 99, 235, 0.25)' : 'none',
+                                                            transition: 'all 0.15s ease'
+                                                        }}
+                                                    >
+                                                        📅 Monthly (मासिक)
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormState(prev => ({ ...prev, fee_type: 'Yearly' }))}
+                                                        style={{
+                                                            padding: '0.35rem 0.85rem',
+                                                            borderRadius: '6px',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.8rem',
+                                                            fontWeight: '700',
+                                                            background: !isMonthly ? 'var(--color-primary, #E08A00)' : 'transparent',
+                                                            color: !isMonthly ? '#ffffff' : 'var(--color-text-main)',
+                                                            boxShadow: !isMonthly ? '0 2px 6px rgba(224, 138, 0, 0.25)' : 'none',
+                                                            transition: 'all 0.15s ease'
+                                                        }}
+                                                    >
+                                                        🎓 Yearly (वार्षिक)
+                                                    </button>
+                                                </div>
+                                            </div>
 
                                             <form onSubmit={(e) => handleSaveFees(e, student, paidFees)} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                                 {/* Live Summary Line */}
@@ -993,77 +1333,168 @@ const FeesTab = () => {
                                                     borderRadius: '6px',
                                                     fontSize: '0.85rem',
                                                     fontWeight: '600',
-                                                    color: 'var(--color-text-main)',
-                                                    border: '1px solid var(--color-border)'
+                                                    color: isMonthly ? '#2563eb' : 'var(--color-text-main)',
+                                                    border: isMonthly ? '1px solid rgba(37, 99, 235, 0.25)' : '1px solid var(--color-border)'
                                                 }}>
-                                                    Total {formatCurrency(liveTotal)} · Paid {formatCurrency(livePaid)} · Remaining {formatCurrency(liveRemaining)}
+                                                    {isMonthly ? (
+                                                        <span>Plan: <strong>Monthly Fees (मासिक)</strong> · Rate: {formatCurrency(liveMonthly)} / month {isFirstTime && Number(formState.paid_now) > 0 ? `· Initial payment: ${formatCurrency(formState.paid_now)}` : ''}</span>
+                                                    ) : (
+                                                        <span>Plan: <strong>Yearly Course Fees (वार्षिक)</strong> · Total {formatCurrency(liveTotal)} · Paid {formatCurrency(livePaid)} · Remaining {formatCurrency(liveRemaining)}</span>
+                                                    )}
                                                 </div>
 
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
-                                                    <div className={styles.inputGroup}>
-                                                        <label>Total Fees (कुल फीस) *</label>
-                                                        <input
-                                                            required
-                                                            type="number"
-                                                            min="0"
-                                                            step="0.01"
-                                                            placeholder="e.g. 5000"
-                                                            value={formState.total_fees}
-                                                            onChange={e => setFormState({ ...formState, total_fees: e.target.value })}
-                                                        />
-                                                    </div>
-
-                                                    <div className={styles.inputGroup}>
-                                                        <label>Fees Start Date (शुरू तिथि) *</label>
-                                                        <input
-                                                            required
-                                                            type="date"
-                                                            value={formState.fees_start_date}
-                                                            onChange={e => setFormState({ ...formState, fees_start_date: e.target.value })}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                {/* First Time Set: Optional Initial Payment */}
-                                                {isFirstTime && (
-                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
-                                                        <div className={styles.inputGroup}>
-                                                            <label>Paid now (optional)</label>
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                step="0.01"
-                                                                placeholder="e.g. 500"
-                                                                value={formState.paid_now}
-                                                                onChange={e => setFormState({ ...formState, paid_now: e.target.value })}
-                                                            />
-                                                        </div>
-
-                                                        {Number(formState.paid_now) > 0 && (
+                                                {isMonthly ? (
+                                                    /* Monthly Form Fields */
+                                                    <>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
                                                             <div className={styles.inputGroup}>
-                                                                <label>Paid Date *</label>
+                                                                <label>Monthly Fee Rate (मासिक फीस प्रति माह) *</label>
+                                                                <input
+                                                                    required
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    placeholder="e.g. 800"
+                                                                    value={formState.monthly_amount || ''}
+                                                                    onChange={e => setFormState({ ...formState, monthly_amount: e.target.value })}
+                                                                />
+                                                            </div>
+
+                                                            <div className={styles.inputGroup}>
+                                                                <label>Fees Start Date (शुरू माह / तिथि) *</label>
                                                                 <input
                                                                     required
                                                                     type="date"
-                                                                    value={formState.paid_date}
-                                                                    onChange={e => setFormState({ ...formState, paid_date: e.target.value })}
+                                                                    value={formState.fees_start_date}
+                                                                    onChange={e => setFormState({ ...formState, fees_start_date: e.target.value })}
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        {isFirstTime && (
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+                                                                <div className={styles.inputGroup}>
+                                                                    <label>Paid this month now? (optional)</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        step="0.01"
+                                                                        placeholder={formState.monthly_amount ? `e.g. ${formState.monthly_amount}` : 'e.g. 800'}
+                                                                        value={formState.paid_now}
+                                                                        onChange={e => setFormState({ ...formState, paid_now: e.target.value })}
+                                                                    />
+                                                                </div>
+
+                                                                {Number(formState.paid_now) > 0 && (
+                                                                    <>
+                                                                        <div className={styles.inputGroup}>
+                                                                            <label>Paid Date *</label>
+                                                                            <input
+                                                                                required
+                                                                                type="date"
+                                                                                value={formState.paid_date}
+                                                                                onChange={e => setFormState({ ...formState, paid_date: e.target.value })}
+                                                                            />
+                                                                        </div>
+                                                                        <div className={styles.inputGroup}>
+                                                                            <label>Fee for Month</label>
+                                                                            <input
+                                                                                type="text"
+                                                                                list="month-list-set"
+                                                                                placeholder="e.g. April 2026"
+                                                                                value={formState.month_for || ''}
+                                                                                onChange={e => setFormState({ ...formState, month_for: e.target.value })}
+                                                                            />
+                                                                            <datalist id="month-list-set">
+                                                                                {getRecentMonthOptions().map(m => (
+                                                                                    <option key={m} value={m} />
+                                                                                ))}
+                                                                            </datalist>
+                                                                        </div>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        <div className={styles.inputGroup}>
+                                                            <label>Next Due Date (अगली फीस देय तिथि)</label>
+                                                            <input
+                                                                type="date"
+                                                                value={formState.fees_due_date || ''}
+                                                                onChange={e => setFormState({ ...formState, fees_due_date: e.target.value })}
+                                                            />
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    /* Yearly Form Fields */
+                                                    <>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+                                                            <div className={styles.inputGroup}>
+                                                                <label>Total Fees (कुल फीस) *</label>
+                                                                <input
+                                                                    required
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    placeholder="e.g. 5000"
+                                                                    value={formState.total_fees}
+                                                                    onChange={e => setFormState({ ...formState, total_fees: e.target.value })}
+                                                                />
+                                                            </div>
+
+                                                            <div className={styles.inputGroup}>
+                                                                <label>Fees Start Date (शुरू तिथि) *</label>
+                                                                <input
+                                                                    required
+                                                                    type="date"
+                                                                    value={formState.fees_start_date}
+                                                                    onChange={e => setFormState({ ...formState, fees_start_date: e.target.value })}
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* First Time Set: Optional Initial Payment */}
+                                                        {isFirstTime && (
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+                                                                <div className={styles.inputGroup}>
+                                                                    <label>Paid now (optional)</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        step="0.01"
+                                                                        placeholder="e.g. 500"
+                                                                        value={formState.paid_now}
+                                                                        onChange={e => setFormState({ ...formState, paid_now: e.target.value })}
+                                                                    />
+                                                                </div>
+
+                                                                {Number(formState.paid_now) > 0 && (
+                                                                    <div className={styles.inputGroup}>
+                                                                        <label>Paid Date *</label>
+                                                                        <input
+                                                                            required
+                                                                            type="date"
+                                                                            value={formState.paid_date}
+                                                                            onChange={e => setFormState({ ...formState, paid_date: e.target.value })}
+                                                                        />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Due date: hidden if remaining is 0 or less */}
+                                                        {liveRemaining > 0 && (
+                                                            <div className={styles.inputGroup}>
+                                                                <label>Baaki fees ki due date *</label>
+                                                                <input
+                                                                    required
+                                                                    type="date"
+                                                                    value={formState.fees_due_date}
+                                                                    onChange={e => setFormState({ ...formState, fees_due_date: e.target.value })}
                                                                 />
                                                             </div>
                                                         )}
-                                                    </div>
-                                                )}
-
-                                                {/* Due date: hidden if remaining is 0 or less */}
-                                                {liveRemaining > 0 && (
-                                                    <div className={styles.inputGroup}>
-                                                        <label>Baaki fees ki due date *</label>
-                                                        <input
-                                                            required
-                                                            type="date"
-                                                            value={formState.fees_due_date}
-                                                            onChange={e => setFormState({ ...formState, fees_due_date: e.target.value })}
-                                                        />
-                                                    </div>
+                                                    </>
                                                 )}
 
                                                 {formError && (
@@ -1105,11 +1536,12 @@ const FeesTab = () => {
                                 {/* E) INLINE FORM: "+ Add payment" / Payment Edit */}
                                 {isFormOpen && (activeForm.type === 'add_payment' || activeForm.type === 'edit_payment') && (() => {
                                     const isEdit = activeForm.type === 'edit_payment';
+                                    const isMonthly = student.fee_type === 'Monthly';
                                     const allowedMax = isEdit
                                         ? Math.max(0, totalFees - (paidFees - Number(activeForm.payment.amount)))
                                         : remainingFees;
                                     const liveAmount = Number(formState.amount) || 0;
-                                    const remainingAfter = Math.max(0, allowedMax - liveAmount);
+                                    const remainingAfter = isMonthly ? 0 : Math.max(0, allowedMax - liveAmount);
 
                                     return (
                                         <div style={{
@@ -1120,7 +1552,7 @@ const FeesTab = () => {
                                             border: '1px solid var(--color-border)'
                                         }}>
                                             <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--color-text-main)' }}>
-                                                {isEdit ? 'Edit Payment Record' : 'Record New Payment'}
+                                                {isEdit ? 'Edit Payment Record' : (isMonthly ? 'Record Monthly Fee Payment' : 'Record New Payment')}
                                             </h4>
 
                                             <form onSubmit={(e) => handleSavePayment(e, student, allowedMax)} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -1131,10 +1563,14 @@ const FeesTab = () => {
                                                     borderRadius: '6px',
                                                     fontSize: '0.85rem',
                                                     fontWeight: '600',
-                                                    color: 'var(--color-text-main)',
+                                                    color: isMonthly ? '#2563eb' : 'var(--color-text-main)',
                                                     border: '1px solid var(--color-border)'
                                                 }}>
-                                                    Is payment ke baad remaining: {formatCurrency(remainingAfter)}
+                                                    {isMonthly ? (
+                                                        <span>Monthly Payment · Recording: {formatCurrency(liveAmount)} {formState.month_for ? `for ${formState.month_for}` : ''}</span>
+                                                    ) : (
+                                                        <span>Is payment ke baad remaining: {formatCurrency(remainingAfter)}</span>
+                                                    )}
                                                 </div>
 
                                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
@@ -1145,7 +1581,7 @@ const FeesTab = () => {
                                                             type="number"
                                                             min="0.01"
                                                             step="0.01"
-                                                            placeholder={`Max ${allowedMax}`}
+                                                            placeholder={isMonthly && student.monthly_amount ? `Rate: ₹${student.monthly_amount}` : (isMonthly ? 'e.g. 800' : `Max ${allowedMax}`)}
                                                             value={formState.amount}
                                                             onChange={e => setFormState({ ...formState, amount: e.target.value })}
                                                         />
@@ -1160,16 +1596,34 @@ const FeesTab = () => {
                                                             onChange={e => setFormState({ ...formState, payment_date: e.target.value })}
                                                         />
                                                     </div>
+
+                                                    {isMonthly && (
+                                                        <div className={styles.inputGroup}>
+                                                            <label>Payment for Month (किस माह की फीस)</label>
+                                                            <input
+                                                                type="text"
+                                                                list="month-list-pay"
+                                                                placeholder="e.g. April 2026"
+                                                                value={formState.month_for || ''}
+                                                                onChange={e => setFormState({ ...formState, month_for: e.target.value })}
+                                                            />
+                                                            <datalist id="month-list-pay">
+                                                                {getRecentMonthOptions().map(m => (
+                                                                    <option key={m} value={m} />
+                                                                ))}
+                                                            </datalist>
+                                                        </div>
+                                                    )}
                                                 </div>
 
-                                                {/* Due Date: hide when remainingAfter becomes 0 */}
-                                                {remainingAfter > 0 && (
+                                                {/* Due Date: for monthly or if remaining > 0 */}
+                                                {(isMonthly || remainingAfter > 0) && (
                                                     <div className={styles.inputGroup}>
-                                                        <label>Baaki fees ki due date *</label>
+                                                        <label>{isMonthly ? 'Next Due Date (अगली माह की देय तिथि)' : 'Baaki fees ki due date *'}</label>
                                                         <input
-                                                            required
+                                                            required={!isMonthly}
                                                             type="date"
-                                                            value={formState.fees_due_date}
+                                                            value={formState.fees_due_date || ''}
                                                             onChange={e => setFormState({ ...formState, fees_due_date: e.target.value })}
                                                         />
                                                     </div>
@@ -1257,6 +1711,18 @@ const FeesTab = () => {
                                                         }}>
                                                             PAID
                                                         </span>
+                                                        {p.month_for && (
+                                                            <span style={{
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: '600',
+                                                                padding: '2px 8px',
+                                                                borderRadius: '6px',
+                                                                background: 'rgba(37, 99, 235, 0.1)',
+                                                                color: '#2563eb'
+                                                            }}>
+                                                                {p.month_for}
+                                                            </span>
+                                                        )}
                                                         <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
                                                             Paid date: {formatDate(p.payment_date)}
                                                         </span>

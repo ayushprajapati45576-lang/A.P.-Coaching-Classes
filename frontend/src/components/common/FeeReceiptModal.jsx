@@ -57,6 +57,28 @@ const generateReceiptShareText = (receipt) => {
     const dueDateStr = receipt.dueDate ? formatDate(receipt.dueDate) : '';
     const paymentMode = receipt.paymentMode || 'Cash / Online UPI';
     const isStatement = Boolean(receipt.isStatement);
+    const isMonthly = receipt.fee_type === 'Monthly';
+
+    if (isMonthly) {
+        return `🧾 *A.P. COACHING CLASSES*
+*${isStatement ? 'MONTHLY FEES STATEMENT / विवरण' : 'MONTHLY FEE RECEIPT / मासिक फीस रसीद'}*
+━━━━━━━━━━━━━━━━━━━━
+👤 *Student:* ${studentName}${fatherName}
+🏫 *Class:* ${classStr || 'General'}
+🔢 *Receipt No:* ${receiptNo}
+📅 *Date:* ${dateStr}
+
+💰 *Payment Details:*
+• Fee Plan: Monthly (मासिक)
+• *Amount Received: ₹${currentPaid.toLocaleString('en-IN')} (PAID ✓)*${receipt.month_for ? `\n• Month: ${receipt.month_for}` : ''}${dueDateStr ? `\n• Next Due Date: ${dueDateStr}` : ''}
+• Payment Mode: ${paymentMode}
+
+✅ *Status:* Official monthly payment recorded & verified in coaching system.
+━━━━━━━━━━━━━━━━━━━━
+📍 *A.P. Coaching Classes | Anil Sir Campus*
+📞 *Director Helpline:* +91 9981182741
+✨ *Concept Clear, Future Secure*`;
+    }
 
     return `🧾 *A.P. COACHING CLASSES*
 *${isStatement ? 'FEES STATEMENT / विवरण' : 'OFFICIAL FEE RECEIPT / फीस रसीद'}*
@@ -408,6 +430,7 @@ const buildReceiptCardHtml = (receipt, logoUrl) => {
     const dueDateStr = receipt.dueDate ? formatDate(receipt.dueDate) : '-';
     const paymentMode = receipt.paymentMode || 'Cash / Online UPI';
     const isStatement = Boolean(receipt.isStatement);
+    const isMonthly = receipt.fee_type === 'Monthly';
     const paymentsList = receipt.paymentsList || [];
 
     return `
@@ -428,7 +451,7 @@ const buildReceiptCardHtml = (receipt, logoUrl) => {
                 </td>
                 <td style="width: 215px; text-align: right; vertical-align: middle;">
                     <div class="badge-box">
-                        <div class="badge">${isStatement ? 'FEES STATEMENT' : 'FEE RECEIPT / रसीद'}</div>
+                        <div class="badge">${isStatement ? (isMonthly ? 'MONTHLY STATEMENT' : 'FEES STATEMENT') : (isMonthly ? 'MONTHLY FEE RECEIPT' : 'FEE RECEIPT / रसीद')}</div>
                         <div class="receipt-no">Receipt No: ${receiptNo}</div>
                         <div class="receipt-date">Date: ${dateStr}</div>
                     </div>
@@ -479,6 +502,38 @@ const buildReceiptCardHtml = (receipt, logoUrl) => {
             </table>
 
             <!-- Fee Details Table -->
+            ${isMonthly ? `
+            <table class="fee-table">
+                <thead>
+                    <tr>
+                        <th class="col-sno">S.No.</th>
+                        <th>Particulars / विवरण</th>
+                        <th class="col-amount">Amount (राशि)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="col-sno">1</td>
+                        <td>Monthly Tuition Fee Plan ${receipt.month_for ? `(${receipt.month_for})` : ''}</td>
+                        <td class="col-amount">${formatCurrency(receipt.monthly_amount || receipt.totalFees || receipt.currentPaid)}</td>
+                    </tr>
+                    <tr class="paid-row">
+                        <td class="col-sno">2</td>
+                        <td>
+                            <strong>Amount Received (वर्तमान भुगतान)</strong>
+                            <span class="paid-tag">PAID ✓</span>
+                        </td>
+                        <td class="col-amount">${currentPaidStr}</td>
+                    </tr>
+                    ${receipt.dueDate ? `
+                    <tr class="due-row">
+                        <td class="col-sno">3</td>
+                        <td>Next Monthly Due Date: ${dueDateStr}</td>
+                        <td class="col-amount">-</td>
+                    </tr>` : ''}
+                </tbody>
+            </table>
+            ` : `
             <table class="fee-table">
                 <thead>
                     <tr>
@@ -517,6 +572,7 @@ const buildReceiptCardHtml = (receipt, logoUrl) => {
                     </tr>
                 </tbody>
             </table>
+            `}
 
             ${isStatement && paymentsList && paymentsList.length > 0 ? `
             <div style="margin: 4px 0;">
@@ -603,58 +659,39 @@ const buildReceiptHtml = (receipt, logoUrl) => {
 </html>`;
 };
 
-// High-resolution A4 PDF Document Generator (Isolated from mobile viewport via dedicated 794px desktop iframe)
+// High-resolution A4 PDF Document Generator (Isolated from mobile viewport via dedicated 794px desktop container)
 const generatePdfDocument = async (receipt) => {
     const logoUrl = await getLogoDataUrl();
     const cardHtml = buildReceiptCardHtml(receipt, logoUrl);
     const cssContent = getReceiptCss();
 
-    // Isolated off-screen iframe to guarantee true desktop 794px viewport on mobile devices (Android/iOS)
-    const existingIframe = document.getElementById('apc-receipt-pdf-render-frame');
-    if (existingIframe) existingIframe.remove();
+    const existingContainer = document.getElementById('apc-receipt-pdf-render-root');
+    if (existingContainer) existingContainer.remove();
 
-    const iframe = document.createElement('iframe');
-    iframe.id = 'apc-receipt-pdf-render-frame';
-    iframe.style.position = 'fixed';
-    iframe.style.top = '-99999px';
-    iframe.style.left = '-99999px';
-    iframe.style.width = '794px';
-    iframe.style.height = '1123px';
-    iframe.style.border = 'none';
-    iframe.style.opacity = '0';
-    iframe.style.pointerEvents = 'none';
-    iframe.style.zIndex = '-99999';
-    document.body.appendChild(iframe);
+    const container = document.createElement('div');
+    container.id = 'apc-receipt-pdf-render-root';
+    container.style.cssText = [
+        'position: fixed',
+        'top: 0',
+        'left: 0',
+        'width: 794px !important',
+        'min-width: 794px !important',
+        'max-width: 794px !important',
+        'box-sizing: border-box !important',
+        'background: #ffffff !important',
+        'z-index: 100000010 !important',
+        'margin: 0 !important',
+        'padding: 0 !important',
+        'pointer-events: none !important',
+        'overflow: visible !important'
+    ].join(';');
 
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(`<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=794, initial-scale=1">
-    <style>
-        ${cssContent}
-        html, body {
-            width: 794px !important;
-            min-width: 794px !important;
-            max-width: 794px !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            overflow: visible !important;
-        }
-    </style>
-</head>
-<body style="width:794px; min-width:794px; max-width:794px; margin:0; padding:0; background:#ffffff;">
-    ${cardHtml}
-</body>
-</html>`);
-    doc.close();
+    container.innerHTML = `<style>${cssContent}</style>${cardHtml}`;
+    document.body.appendChild(container);
 
-    // Wait for the iframe DOM and images to fully render
+    // Wait for the logo image if still loading
     await new Promise((resolve) => {
-        const img = doc.querySelector('img.logo');
+        const img = container.querySelector('img.logo');
         if (img && !img.complete) {
             img.onload = () => setTimeout(resolve, 80);
             img.onerror = () => setTimeout(resolve, 80);
@@ -664,7 +701,7 @@ const generatePdfDocument = async (receipt) => {
         }
     });
 
-    const cardElement = doc.querySelector('.receipt-card') || doc.body;
+    const cardElement = container.querySelector('.receipt-card') || container;
 
     const canvas = await html2canvas(cardElement, {
         scale: 2, // 2x DPI for crisp high-resolution A4
@@ -676,11 +713,21 @@ const generatePdfDocument = async (receipt) => {
         scrollX: 0,
         scrollY: 0,
         x: 0,
-        y: 0
+        y: 0,
+        onclone: (clonedDoc) => {
+            const clonedContainer = clonedDoc.getElementById('apc-receipt-pdf-render-root');
+            if (clonedContainer) {
+                clonedContainer.style.position = 'absolute';
+                clonedContainer.style.top = '0px';
+                clonedContainer.style.left = '0px';
+                clonedContainer.style.margin = '0px';
+                clonedContainer.style.padding = '0px';
+            }
+        }
     });
 
-    // Remove the temporary iframe immediately
-    iframe.remove();
+    // Remove the temporary container immediately
+    container.remove();
 
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
     const pdf = new jsPDF({
@@ -818,6 +865,9 @@ const FeeReceiptModal = ({ isOpen, onClose, receipt }) => {
         dueDate = null,
         paymentMode = 'Cash / Online UPI',
         isStatement = false,
+        fee_type = 'Yearly',
+        month_for = null,
+        monthly_amount = null,
         paymentsList = []
     } = receipt;
 
@@ -1022,7 +1072,7 @@ const FeeReceiptModal = ({ isOpen, onClose, receipt }) => {
                         </div>
                         <div className={styles.receiptBadgeArea}>
                             <div className={styles.receiptBadge}>
-                                {isStatement ? 'FEES STATEMENT' : 'FEE RECEIPT / रसीद'}
+                                {isStatement ? (fee_type === 'Monthly' ? 'MONTHLY STATEMENT' : 'FEES STATEMENT') : (fee_type === 'Monthly' ? 'MONTHLY FEE RECEIPT / मासिक रसीद' : 'FEE RECEIPT / रसीद')}
                             </div>
                             <div className={styles.receiptNo}>Receipt No: {receiptNo}</div>
                         </div>
@@ -1061,49 +1111,85 @@ const FeeReceiptModal = ({ isOpen, onClose, receipt }) => {
                     </div>
 
                     {/* Fee Details Table */}
-                    <table className={styles.feeTable}>
-                        <thead>
-                            <tr>
-                                <th style={{ width: '60px' }}>S.No.</th>
-                                <th>Particulars / विवरण</th>
-                                <th style={{ width: '160px' }}>Amount (राशि)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>1</td>
-                                <td>Total Course / Session Tuition Fees</td>
-                                <td>{formatCurrency(totalFees)}</td>
-                            </tr>
-                            {previouslyPaid > 0 && (
+                    {fee_type === 'Monthly' ? (
+                        <table className={styles.feeTable}>
+                            <thead>
                                 <tr>
-                                    <td>2</td>
-                                    <td>Previously Paid Amount (पूर्व में जमा राशि)</td>
-                                    <td>{formatCurrency(previouslyPaid)}</td>
+                                    <th style={{ width: '60px' }}>S.No.</th>
+                                    <th>Particulars / विवरण</th>
+                                    <th style={{ width: '160px' }}>Amount (राशि)</th>
                                 </tr>
-                            )}
-                            <tr className={styles.paidHighlightRow}>
-                                <td>{previouslyPaid > 0 ? 3 : 2}</td>
-                                <td>
-                                    <strong>Amount Received (वर्तमान भुगतान)</strong>
-                                    <span className={styles.paidTag}>PAID ✓</span>
-                                </td>
-                                <td>{formatCurrency(currentPaid)}</td>
-                            </tr>
-                            <tr className={styles.remainingRow}>
-                                <td>{previouslyPaid > 0 ? 4 : 3}</td>
-                                <td>
-                                    Remaining Due Fees (शेष बाकी फीस)
-                                    {remainingFees > 0 && dueDate && (
-                                        <span style={{ fontSize: '0.8rem', color: '#b91c1c', display: 'block', fontWeight: '500' }}>
-                                            Next Due Date: {formatDate(dueDate)}
-                                        </span>
-                                    )}
-                                </td>
-                                <td>{formatCurrency(remainingFees)}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>1</td>
+                                    <td>Monthly Tuition Fee Plan {month_for ? `(${month_for})` : ''}</td>
+                                    <td>{formatCurrency(monthly_amount || totalFees || currentPaid)}</td>
+                                </tr>
+                                <tr className={styles.paidHighlightRow}>
+                                    <td>2</td>
+                                    <td>
+                                        <strong>Amount Received (वर्तमान भुगतान)</strong>
+                                        <span className={styles.paidTag}>PAID ✓</span>
+                                    </td>
+                                    <td>{formatCurrency(currentPaid)}</td>
+                                </tr>
+                                {dueDate && (
+                                    <tr className={styles.remainingRow}>
+                                        <td>3</td>
+                                        <td>
+                                            Next Monthly Due Date: {formatDate(dueDate)}
+                                        </td>
+                                        <td>-</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <table className={styles.feeTable}>
+                            <thead>
+                                <tr>
+                                    <th style={{ width: '60px' }}>S.No.</th>
+                                    <th>Particulars / विवरण</th>
+                                    <th style={{ width: '160px' }}>Amount (राशि)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>1</td>
+                                    <td>Total Course / Session Tuition Fees</td>
+                                    <td>{formatCurrency(totalFees)}</td>
+                                </tr>
+                                {previouslyPaid > 0 && (
+                                    <tr>
+                                        <td>2</td>
+                                        <td>Previously Paid Amount (पूर्व में जमा राशि)</td>
+                                        <td>{formatCurrency(previouslyPaid)}</td>
+                                    </tr>
+                                )}
+                                <tr className={styles.paidHighlightRow}>
+                                    <td>{previouslyPaid > 0 ? 3 : 2}</td>
+                                    <td>
+                                        <strong>Amount Received (वर्तमान भुगतान)</strong>
+                                        <span className={styles.paidTag}>PAID ✓</span>
+                                    </td>
+                                    <td>{formatCurrency(currentPaid)}</td>
+                                </tr>
+                                <tr className={styles.remainingRow}>
+                                    <td>{previouslyPaid > 0 ? 4 : 3}</td>
+                                    <td>
+                                        Remaining Due Fees (शेष बाकी फीस)
+                                        {remainingFees > 0 && dueDate && (
+                                            <span style={{ fontSize: '0.8rem', color: '#b91c1c', display: 'block', fontWeight: '500' }}>
+                                                Next Due Date: {formatDate(dueDate)}
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td>{formatCurrency(remainingFees)}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    )}
 
                     {/* Statement Details if available */}
                     {isStatement && paymentsList && paymentsList.length > 0 && (

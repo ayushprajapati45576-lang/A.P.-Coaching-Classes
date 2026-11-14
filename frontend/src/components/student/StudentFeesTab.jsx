@@ -58,6 +58,10 @@ const StudentFeesTab = () => {
         }
     };
 
+    const studentInfo = (fees.length > 0 && fees[0].student_info) ? fees[0].student_info : (user || {});
+    const isMonthly = studentInfo.fee_type === 'Monthly' || fees.some(f => f.fee_type === 'Monthly');
+    const monthlyRate = studentInfo.monthly_amount || (fees.length > 0 && isMonthly ? Number(fees[0].amount) : 0);
+
     const stats = useMemo(() => {
         let totalAssigned = 0;
         let totalPaid = 0;
@@ -77,7 +81,7 @@ const StudentFeesTab = () => {
             totalPaid += paid;
             totalDue += due;
 
-            if (due > 0 && f.due_date) {
+            if (f.due_date) {
                 if (!nextDueDate || new Date(f.due_date) < new Date(nextDueDate)) {
                     nextDueDate = f.due_date;
                 }
@@ -88,53 +92,59 @@ const StudentFeesTab = () => {
     }, [fees]);
 
     const handlePrintRecordReceipt = (f) => {
-        const studentInfo = f.student_info || user || {};
-        const total = Number(f.amount) || stats.totalAssigned || 0;
+        const info = f.student_info || user || {};
+        const total = isMonthly ? (monthlyRate || Number(f.amount) || 0) : (Number(f.amount) || stats.totalAssigned || 0);
         const paidNow = Number(f.paid_amount) || (f.status === 'paid' ? total : 0);
-        const due = f.due_amount !== undefined && f.due_amount !== null 
+        const due = isMonthly ? 0 : (f.due_amount !== undefined && f.due_amount !== null 
             ? Number(f.due_amount) 
-            : (f.status === 'paid' ? 0 : Math.max(0, total - paidNow));
+            : (f.status === 'paid' ? 0 : Math.max(0, total - paidNow)));
 
         setSelectedReceipt({
             receiptNo: `APC-REC-${f.id ? String(f.id).slice(0, 8).toUpperCase() : Date.now().toString().slice(-6)}`,
             date: f.paid_date || new Date().toISOString(),
-            studentName: studentInfo.full_name || user?.full_name || 'Student',
-            fatherName: studentInfo.father_name || user?.father_name || '-',
-            className: studentInfo.class_name || user?.class_name || '-',
-            phone: studentInfo.phone || user?.phone || '-',
+            studentName: info.full_name || user?.full_name || 'Student',
+            fatherName: info.father_name || user?.father_name || '-',
+            className: info.class_name || user?.class_name || '-',
+            phone: info.phone || user?.phone || '-',
             email: user?.email || '',
             currentPaid: paidNow,
             totalFees: total,
             totalPaid: stats.totalPaid,
             remainingFees: due,
             dueDate: f.due_date,
-            paymentMode: 'Cash / Online UPI'
+            paymentMode: 'Cash / Online UPI',
+            fee_type: isMonthly ? 'Monthly' : 'Yearly',
+            month_for: f.month_for || null,
+            monthly_amount: monthlyRate
         });
     };
 
     const handlePrintSummaryReceipt = () => {
-        const studentInfo = (fees.length > 0 && fees[0].student_info) ? fees[0].student_info : (user || {});
+        const info = (fees.length > 0 && fees[0].student_info) ? fees[0].student_info : (user || {});
         const paidFeesList = fees.filter(f => Number(f.paid_amount) > 0 || f.status === 'paid').map(f => ({
             id: f.id,
             payment_date: f.paid_date || f.created_at,
-            amount: Number(f.paid_amount) || Number(f.amount) || 0
+            amount: Number(f.paid_amount) || Number(f.amount) || 0,
+            month_for: f.month_for || null
         }));
 
         setSelectedReceipt({
             receiptNo: `APC-SUMMARY-${Date.now().toString().slice(-6)}`,
             date: new Date().toISOString(),
-            studentName: studentInfo.full_name || user?.full_name || 'Student',
-            fatherName: studentInfo.father_name || user?.father_name || '-',
-            className: studentInfo.class_name || user?.class_name || '-',
-            phone: studentInfo.phone || user?.phone || '-',
+            studentName: info.full_name || user?.full_name || 'Student',
+            fatherName: info.father_name || user?.father_name || '-',
+            className: info.class_name || user?.class_name || '-',
+            phone: info.phone || user?.phone || '-',
             email: user?.email || '',
             currentPaid: stats.totalPaid,
-            totalFees: stats.totalAssigned,
+            totalFees: isMonthly ? (monthlyRate || stats.totalPaid) : stats.totalAssigned,
             totalPaid: stats.totalPaid,
-            remainingFees: stats.totalDue,
+            remainingFees: isMonthly ? 0 : stats.totalDue,
             dueDate: stats.nextDueDate,
             paymentMode: 'Consolidated Fee Summary',
             isStatement: true,
+            fee_type: isMonthly ? 'Monthly' : 'Yearly',
+            monthly_amount: monthlyRate,
             paymentsList: paidFeesList
         });
     };
@@ -151,31 +161,39 @@ const StudentFeesTab = () => {
             {/* Summary Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                 <div style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', padding: '1.25rem', borderRadius: '14px', color: '#fff', boxShadow: '0 8px 16px rgba(59, 130, 246, 0.25)' }}>
-                    <span style={{ fontSize: '0.85rem', opacity: 0.9, fontWeight: '500' }}>Total Fee</span>
-                    <h3 style={{ fontSize: '1.8rem', margin: '0.25rem 0 0 0', fontWeight: '700' }}>₹{stats.totalAssigned.toLocaleString('en-IN')}</h3>
+                    <span style={{ fontSize: '0.85rem', opacity: 0.9, fontWeight: '500' }}>
+                        {isMonthly ? 'Monthly Fee Rate (मासिक फीस)' : 'Total Course Fee'}
+                    </span>
+                    <h3 style={{ fontSize: '1.8rem', margin: '0.25rem 0 0 0', fontWeight: '700' }}>
+                        ₹{(isMonthly ? (monthlyRate || stats.totalAssigned) : stats.totalAssigned).toLocaleString('en-IN')}{isMonthly ? <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>/mo</span> : ''}
+                    </h3>
                 </div>
                 <div style={{ background: 'linear-gradient(135deg, #10b981, #059669)', padding: '1.25rem', borderRadius: '14px', color: '#fff', boxShadow: '0 8px 16px rgba(16, 185, 129, 0.25)' }}>
                     <span style={{ fontSize: '0.85rem', opacity: 0.9, fontWeight: '500' }}>Fee Paid (जमा राशि)</span>
                     <h3 style={{ fontSize: '1.8rem', margin: '0.25rem 0 0 0', fontWeight: '700' }}>₹{stats.totalPaid.toLocaleString('en-IN')}</h3>
                 </div>
                 <div style={{
-                    background: stats.totalDue > 0 ? 'linear-gradient(135deg, #f97316, #ea580c)' : 'linear-gradient(135deg, #10b981, #059669)',
+                    background: (isMonthly ? false : stats.totalDue > 0) ? 'linear-gradient(135deg, #f97316, #ea580c)' : 'linear-gradient(135deg, #10b981, #059669)',
                     padding: '1.25rem',
                     borderRadius: '14px',
                     color: '#fff',
-                    boxShadow: stats.totalDue > 0 ? '0 8px 16px rgba(249, 115, 22, 0.25)' : '0 8px 16px rgba(16, 185, 129, 0.25)'
+                    boxShadow: '0 8px 16px rgba(16, 185, 129, 0.25)'
                 }}>
-                    <span style={{ fontSize: '0.85rem', opacity: 0.9, fontWeight: '500' }}>Due Fees (बाकी फीस)</span>
-                    <h3 style={{ fontSize: '1.8rem', margin: '0.25rem 0 0 0', fontWeight: '700' }}>₹{stats.totalDue.toLocaleString('en-IN')}</h3>
+                    <span style={{ fontSize: '0.85rem', opacity: 0.9, fontWeight: '500' }}>
+                        {isMonthly ? 'Fee Plan Status' : 'Due Fees (बाकी फीस)'}
+                    </span>
+                    <h3 style={{ fontSize: '1.5rem', margin: '0.35rem 0 0 0', fontWeight: '700' }}>
+                        {isMonthly ? 'Active Plan' : `₹${stats.totalDue.toLocaleString('en-IN')}`}
+                    </h3>
                     <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', opacity: 0.85 }}>
-                        {stats.totalDue > 0 ? 'Payment required' : 'All dues cleared!'}
+                        {isMonthly ? 'Monthly Billing Enabled' : (stats.totalDue > 0 ? 'Payment required' : 'All dues cleared!')}
                     </p>
                 </div>
                 <div style={{ background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', padding: '1.25rem', borderRadius: '14px', color: '#fff', boxShadow: '0 8px 16px rgba(139, 92, 246, 0.25)' }}>
                     <span style={{ fontSize: '0.85rem', opacity: 0.9, fontWeight: '500' }}>Upcoming Due Date</span>
                     <h3 style={{ fontSize: '1.4rem', margin: '0.4rem 0 0 0', fontWeight: '700' }}>{stats.nextDueDate ? formatDate(stats.nextDueDate) : 'None'}</h3>
                     <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', opacity: 0.85 }}>
-                        {stats.nextDueDate ? 'Last date for pending fee' : 'No pending dues'}
+                        {stats.nextDueDate ? 'Next scheduled due date' : 'No pending dues'}
                     </p>
                 </div>
             </div>

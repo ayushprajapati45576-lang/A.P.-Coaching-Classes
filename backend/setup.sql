@@ -146,6 +146,12 @@ CREATE TABLE quiz_results (
     taken_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 12. Optional Columns for Monthly vs Yearly Fees Migration
+-- ALTER TABLE students ADD COLUMN IF NOT EXISTS fee_type VARCHAR(20) DEFAULT 'Yearly' CHECK (fee_type IN ('Monthly', 'Yearly'));
+-- ALTER TABLE students ADD COLUMN IF NOT EXISTS monthly_amount NUMERIC(10,2) NULL;
+-- ALTER TABLE payments ADD COLUMN IF NOT EXISTS fee_type VARCHAR(20) DEFAULT 'Yearly';
+-- ALTER TABLE payments ADD COLUMN IF NOT EXISTS month_for VARCHAR(50) NULL;
+
 -- 9. Insert Dummy Teacher Account
 -- Email: teacher@coaching.com
 -- Password: teacher123
